@@ -135,13 +135,13 @@ vk::PhysicalDevice& PickPhysicalDevice(std::vector<vk::PhysicalDevice>& physical
     return *found;
 }
 
-vk::Device CreateDevice(vk::Instance& instance_, vk::PhysicalDevice& physicalDevice, uint32_t graphicalFamilyIndex)
+vk::Device CreateDevice(vk::Instance& instance_, vk::PhysicalDevice& physicalDevice_, uint32_t graphicalFamilyIndex_)
 {
     float queuePriorities[] = { 1.0f };
 
     vk::DeviceQueueCreateInfo queueCreateInfo{
         {},
-        graphicalFamilyIndex,
+        graphicalFamilyIndex_,
         1,
         queuePriorities,
     };
@@ -155,7 +155,24 @@ vk::Device CreateDevice(vk::Instance& instance_, vk::PhysicalDevice& physicalDev
         extensions
     };
 
-    return physicalDevice.createDevice(deviceCreateInfo);
+    return physicalDevice_.createDevice(deviceCreateInfo);
+}
+
+vk::SurfaceKHR CreateSurface(vk::Instance& instance_, GLFWwindow* window_, vk::PhysicalDevice& physicalDevice_, uint32_t graphicsFamilyIndex_)
+{
+    VkSurfaceKHR surface_;
+    if (glfwCreateWindowSurface(static_cast<VkInstance>(instance_), window_, nullptr, &surface_) != VK_SUCCESS) {
+        glfwDestroyWindow(window_);
+        glfwTerminate();
+        throw std::runtime_error("glfw surface was not created");
+    }
+
+    vk::SurfaceKHR surface = vk::SurfaceKHR(surface_);
+    if (!physicalDevice_.getSurfaceSupportKHR(graphicsFamilyIndex_, surface)) {
+        throw std::runtime_error("Present is not supported");
+    }
+
+    return surface;
 }
 
 int main() 
@@ -164,6 +181,16 @@ int main()
     if (!glfwInit()) 
     {
         throw std::runtime_error("GLFW was not inited");
+    }
+
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);  // Tell GLFW not to create an OpenGL context
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);   // Window should not be resizable (optional)
+
+    GLFWwindow* window = glfwCreateWindow(1024, 780, AppName, 0, 0);
+    if (!window)
+    {
+        glfwTerminate();
+        throw std::runtime_error("GLFW window was not created");
     }
 
     vk::Instance instance = CreateInstance();
@@ -178,8 +205,16 @@ int main()
 
     vk::Device device = CreateDevice(instance, physicalDevice, graphicsFamilyIndex);
 
+    vk::SurfaceKHR surface = CreateSurface(instance, window, physicalDevice, graphicsFamilyIndex);
 
 
+    int windowWidth{0};
+    int windowHeight{0};
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+
+
+    instance.destroySurfaceKHR(surface);
     device.destroy();
 
 #ifdef _DEBUG
@@ -188,6 +223,7 @@ int main()
 #endif
 
     instance.destroy();
+    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }
