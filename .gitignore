@@ -1,3 +1,7 @@
+#vscode
+.vscode
+#CMakefiles
+build
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
