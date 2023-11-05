@@ -661,6 +661,7 @@ int main() {
     
     device.waitIdle();
 
+    device.freeCommandBuffers(commandPool, commandBuffers);
     device.destroyCommandPool(commandPool);
     destroySwapchain(device, swapchain);
     device.destroyPipeline(trianglePipline);
