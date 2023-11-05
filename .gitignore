@@ -1,6 +1,11 @@
 #vscode
 .vscode
+
+#shaders
+shaders/*.spv
+
 #CMakefiles
+bin
 build
 CMakeLists.txt.user
 CMakeCache.txt

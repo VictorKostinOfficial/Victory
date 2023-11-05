@@ -530,8 +530,8 @@ int main() {
     vk::Queue queue = device.getQueue(graphicsFamilyIndex, 0);
     vk::RenderPass renderPass = CreateRenderPass(device, swapchainFormat);
 
-    vk::ShaderModule triangleVS = LoadShader(device, "../../shaders/triangle.vert.spv");
-    vk::ShaderModule triangleFS = LoadShader(device, "../../shaders/triangle.frag.spv");
+    vk::ShaderModule triangleVS = LoadShader(device, "shaders/triangle.vert.spv");
+    vk::ShaderModule triangleFS = LoadShader(device, "shaders/triangle.frag.spv");
 
     vk::PipelineCache piplineCash{};
 
@@ -661,7 +661,6 @@ int main() {
     
     device.waitIdle();
 
-    device.freeCommandBuffers(commandPool, commandBuffers);
     device.destroyCommandPool(commandPool);
     destroySwapchain(device, swapchain);
     device.destroyPipeline(trianglePipline);
