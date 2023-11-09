@@ -1,5 +1,9 @@
-#vscode
+#vs
 .vscode
+.vs
+
+#extern
+Victory/extern
 
 #shaders
 shaders/*.spv
