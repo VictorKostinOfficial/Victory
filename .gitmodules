@@ -1,6 +1,0 @@
-[submodule "extern/glfw"]
-	path = extern/glfw
-	url = https://github.com/VictorKostinOfficial/glfw.git
-[submodule "extern/imgui"]
-	path = extern/imgui
-	url = https://github.com/VictorKostinOfficial/imgui.git
