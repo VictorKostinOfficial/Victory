@@ -33,6 +33,7 @@ void CreateInstance(VulkanContext& vulkanContext_) {
         throw std::runtime_error("Vulkan version is not supported");
     }
 
+
     vk::ApplicationInfo applicationInfo{
         "Victory Application",
         VK_MAKE_VERSION(1,0,0),
