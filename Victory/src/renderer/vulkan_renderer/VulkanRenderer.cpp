@@ -29,7 +29,9 @@
 void CreateInstance(VulkanContext& vulkanContext_) {
 
     uint32_t version = VK_API_VERSION_1_1;
-    vk::enumerateInstanceVersion(&version);
+    if (vk::enumerateInstanceVersion(&version) != vk::Result::eSuccess) {
+        throw std::runtime_error("Vulkan version is not supported");
+    }
 
     vk::ApplicationInfo applicationInfo{
         "Victory Application",
