@@ -6,11 +6,12 @@
 
 Renderer* Renderer::s_Instance{ nullptr };
 
-Renderer* Renderer::CreateInstance() {
+Renderer *Renderer::CreateRenderer(const char *applicationName)
+{
     if (s_Instance) {
         throw std::runtime_error("Renderer already exists");
     }
     s_Instance = new VulkanRenderer();
-    s_Instance->Initialize();
+    s_Instance->Initialize(applicationName);
     return s_Instance;
 }

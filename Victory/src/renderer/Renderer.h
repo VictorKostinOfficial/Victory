@@ -5,7 +5,7 @@ public:
 
     virtual ~Renderer() = default;
 
-    static Renderer* CreateInstance();
+    static Renderer* CreateRenderer(const char* applicationName);
 
     virtual void Resize() = 0;
     virtual void BeginFrame() = 0;
@@ -17,7 +17,7 @@ protected:
 
 private:
 
-    virtual void Initialize() = 0;
+    virtual void Initialize(const char* applicationName) = 0;
     virtual void Destroy() = 0;
 
     static Renderer* s_Instance;

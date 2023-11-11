@@ -52,6 +52,7 @@ private:
     ApplicationSpecification m_ApplicationSpec;
 
     std::vector<std::shared_ptr<Layer>> m_LayerStack;
+    bool m_IsRunning{ true };
 };
 
 Application* CreateApplication(ApplicationCommandLineArgs&& args);

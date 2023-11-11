@@ -1,5 +1,6 @@
 #include "VulkanRenderer.h"
-#include "stdio.h"
+
+#include "VulkanTypes.h"
 
 VulkanRenderer::~VulkanRenderer() {
     Destroy();
@@ -19,10 +20,20 @@ void VulkanRenderer::EndFrame() {
     printf("VulkanRenderer::EndFrame\n");
 }
 
-void VulkanRenderer::Initialize() {
-    printf("VulkanRenderer::Initialize\n");
-}
-
 void VulkanRenderer::Destroy() {
     printf("VulkanRenderer::Destroy\n");
+
+    m_VulkanContext.Cleanup();
+}
+
+
+
+
+
+
+
+void VulkanRenderer::Initialize(const char* applicationName) {
+    printf("VulkanRenderer::Initialize\n");
+
+    m_VulkanContext.Initialize(applicationName);
 }

@@ -3,8 +3,6 @@
 
 #include "renderer/Renderer.h"
 
-#include <vulkan/vulkan.hpp>
-
 namespace Victory {
 
 Application* Application::s_Instance{ nullptr };
@@ -22,42 +20,17 @@ Application::~Application() {
 }
 
 void Application::Run() {
-    Renderer* renderer = Renderer::CreateInstance();
+    Renderer* pRenderer = Renderer::CreateRenderer(m_ApplicationSpec.Name);
 
-    // while (true)
+    // while (m_IsRunning)
     // {
-    //     renderer->Resize();
-    //     renderer->BeginFrame();
-    //     renderer->EndFrame();
+    //     pRenderer->Resize();
+    //     pRenderer->BeginFrame();
+    //     pRenderer->EndFrame();
     // }
 
-    delete renderer;
-
-    vk::ApplicationInfo applicationInfo{
-        m_ApplicationSpec.Name,
-        VK_MAKE_VERSION(1,0,0),
-        "Victory Engine",
-        VK_MAKE_VERSION(1,0,0),
-        VK_API_VERSION_1_1
-    };
-
-    // TODO: Collect layers and extensions
-    std::vector<const char*> layers;
-    std::vector<const char*> extensions;
-
-    vk::InstanceCreateInfo instanceCI{{}, 
-        &applicationInfo, 
-        layers, 
-        extensions
-    };
-
-    vk::Instance inst = vk::createInstance(instanceCI);
-
-
-    printf("All Works\n");
-    // TODO: Main loop
-
-    inst.destroy();
+    // TODO: Make RAII?
+    delete pRenderer;
 }
     
 } // namespace Victory
