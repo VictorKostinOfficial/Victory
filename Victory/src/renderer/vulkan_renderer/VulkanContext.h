@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VulkanTypes.h"
+#include <vulkan/vulkan.hpp>
 
 class VulkanContext {
 public:
@@ -16,14 +16,29 @@ public:
 
 private:
 
-    void CreateInstance();
+    void CreateInstance(const char* applicationName_);
     void CollectLayers(std::vector<const char*>& layers_);
     void CollectExtensions(std::vector<const char*>& extensions_);
 
+#ifndef NDEBUG
+    void RegisterDebugUtilsMessenger();
+#endif // NDEBUG
+
     void PickPhysicalDevice();
+    bool PickQueueIndecies(vk::PhysicalDevice& phDevice_);
     void CreateLogicalDevice();
 
+private:
+
     vk::Instance m_Instance;
+    uint32_t m_GraphicsQueueIndex{UINT32_MAX};
+    uint32_t m_PresentQueueIndex{UINT32_MAX};
+    uint32_t m_ComputeQueueIndex{UINT32_MAX};
+    uint32_t m_TransferQueueIndex{UINT32_MAX};
     vk::PhysicalDevice m_PhysicalDevice;
     vk::Device m_Device;
+
+#ifndef NDEBUG
+    vk::DebugUtilsMessengerEXT m_DebugMessenger{ VK_NULL_HANDLE };
+#endif // NDEBUG
 };

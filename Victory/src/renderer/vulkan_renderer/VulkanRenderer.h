@@ -2,7 +2,9 @@
 
 #include "../Renderer.h"
 
-#include "VulkanContext.h"
+#include <memory>
+
+class VulkanContext;
 
 class VulkanRenderer : public Renderer {
 public:
@@ -19,5 +21,7 @@ private:
 
     virtual void Initialize(const char* applicationName) override;
 
-    VulkanContext m_VulkanContext;
+private: 
+
+    VulkanContext* m_VulkanContext;
 };

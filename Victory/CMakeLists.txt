@@ -8,4 +8,9 @@ file(GLOB_RECURSE sources
 
 find_package(Vulkan REQUIRED)
 
-add_library(Victory ${sources} ${headers})
+add_subdirectory(externs/glfw)
+add_subdirectory(externs/imgui)
+
+add_library(Victory ${sources})
+
+target_link_libraries(Victory PRIVATE glfw imgui)

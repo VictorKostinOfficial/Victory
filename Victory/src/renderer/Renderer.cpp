@@ -6,8 +6,7 @@
 
 Renderer* Renderer::s_Instance{ nullptr };
 
-Renderer *Renderer::CreateRenderer(const char *applicationName)
-{
+Renderer* Renderer::CreateRenderer(const char *applicationName) {
     if (s_Instance) {
         throw std::runtime_error("Renderer already exists");
     }
