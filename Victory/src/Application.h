@@ -1,5 +1,10 @@
 #pragma once
 
+#include <vector>
+#include <memory>
+
+#include "Layer.h"
+
 namespace Victory {
 
 struct ApplicationCommandLineArgs {
@@ -28,10 +33,25 @@ public:
 
     void Run();
 
+    template<typename T>
+	void PushLayer()
+	{
+		static_assert(std::is_base_of<Layer, T>::value, "Pushed type is not subclass of Layer!");
+		m_LayerStack.emplace_back(std::make_shared<T>())->OnAttach();
+	}
+
+	void PushLayer(const std::shared_ptr<Layer>& layer_) { 
+        m_LayerStack.emplace_back(layer_); 
+        layer_->OnAttach(); 
+    }
+
+
 private:
 
     static Application* s_Instance;
     ApplicationSpecification m_ApplicationSpec;
+
+    std::vector<std::shared_ptr<Layer>> m_LayerStack;
 };
 
 Application* CreateApplication(ApplicationCommandLineArgs&& args);
