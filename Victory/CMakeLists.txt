@@ -8,4 +8,4 @@ file(GLOB_RECURSE sources
 
 find_package(Vulkan REQUIRED)
 
-add_library(Victory ${sources})
+add_library(Victory ${sources} ${headers})

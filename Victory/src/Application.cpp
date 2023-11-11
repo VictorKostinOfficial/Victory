@@ -1,6 +1,8 @@
 #include "Application.h"
 #include <stdio.h>
 
+#include "renderer/Renderer.h"
+
 #include <vulkan/vulkan.hpp>
 
 namespace Victory {
@@ -11,7 +13,7 @@ Application::Application(const ApplicationSpecification &applicationSpecificatio
     : m_ApplicationSpec(applicationSpecification) {
 
     if (s_Instance) {
-
+        throw std::runtime_error("Application already exists");
     }
     s_Instance = this;
 }
@@ -20,7 +22,16 @@ Application::~Application() {
 }
 
 void Application::Run() {
+    Renderer* renderer = Renderer::CreateInstance();
 
+    // while (true)
+    // {
+    //     renderer->Resize();
+    //     renderer->BeginFrame();
+    //     renderer->EndFrame();
+    // }
+
+    delete renderer;
 
     vk::ApplicationInfo applicationInfo{
         m_ApplicationSpec.Name,
