@@ -1,6 +1,6 @@
-[submodule "Victory/externs/glfw"]
-	path = Victory/externs/glfw
-	url = https://github.com/VictorKostinOfficial/glfw.git
 [submodule "Victory/externs/imgui"]
 	path = Victory/externs/imgui
 	url = https://github.com/VictorKostinOfficial/imgui.git
+[submodule "Victory/externs/glfw"]
+	path = Victory/externs/glfw
+	url = https://github.com/VictorKostinOfficial/glfw.git
