@@ -129,6 +129,25 @@ vk::Device VulkanContext::GetDevice() {
     return m_Device;
 }
 
+vk::PhysicalDevice VulkanContext::GetPhysicalDevice() {
+    return m_PhysicalDevice;
+}
+
+uint32_t VulkanContext::GetQueueIndex(uint8_t type /*= 0*/)
+{
+    switch (type)
+    {
+    case 1:
+        return m_PresentQueueIndex;
+    case 2:
+        return m_ComputeQueueIndex;
+    case 3: 
+        return m_TransferQueueIndex;
+    default:
+        return m_GraphicsQueueIndex;
+    }
+}
+
 #ifndef NDEBUG
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback( 
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,

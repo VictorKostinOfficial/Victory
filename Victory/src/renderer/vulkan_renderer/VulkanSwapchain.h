@@ -8,14 +8,18 @@ class VulkanContext;
 class VulkanSwapchain {
 public:
 
-    bool CreateSwapchain(VulkanContext* context_);
-
     bool CreateSurface(VulkanContext* context_, GLFWwindow* window_);
-
+    bool CreateSwapchain(VulkanContext* context_, GLFWwindow* window_);
     void Cleanup(VulkanContext* context_);
 
     vk::SurfaceKHR GetSurface();
     vk::Format GetSwapcahinFormat();
+
+private:
+
+    vk::SurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats_);
+    vk::PresentModeKHR ChoosePresentationModeFormat(const std::vector<vk::PresentModeKHR>& modes_);
+    vk::Extent2D ChooseSwapchainExtent(const vk::SurfaceCapabilitiesKHR& capabilities_, GLFWwindow* window_);
 
 private:
 

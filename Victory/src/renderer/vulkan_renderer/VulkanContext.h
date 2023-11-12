@@ -15,6 +15,8 @@ public:
 
     vk::Instance GetInstance();
     vk::Device GetDevice();
+    vk::PhysicalDevice GetPhysicalDevice();
+    uint32_t GetQueueIndex(uint8_t type = 0);
 
 #ifndef NDEBUG
     void RegisterDebugUtilsMessenger();

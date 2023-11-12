@@ -78,6 +78,10 @@ bool VulkanRenderer::Initialize(const char* applicationName_) {
     if (!m_VulkanContext->CreateLogicalDevice()) {
         return false;
     }
+
+    if (!m_VulkanSwapcahin->CreateSwapchain(m_VulkanContext, m_Window)) {
+        return false;
+    }
     
     return true;
 }
