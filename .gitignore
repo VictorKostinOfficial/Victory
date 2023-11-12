@@ -3,7 +3,7 @@
 .vs
 
 #shaders
-shaders/*.spv
+Victory/shaders/*.spv
 
 #CMakefiles
 bin

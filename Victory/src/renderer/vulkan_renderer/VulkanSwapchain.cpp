@@ -116,6 +116,10 @@ vk::Format VulkanSwapchain::GetSwapcahinFormat() {
     return vk::Format();
 }
 
+vk::Extent2D VulkanSwapchain::GetExtent() {
+    return m_Extent;
+}
+
 vk::SurfaceFormatKHR VulkanSwapchain::ChooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats_) {
     for (auto&& format : formats_) {
         if (format.format == vk::Format::eB8G8R8A8Srgb &&

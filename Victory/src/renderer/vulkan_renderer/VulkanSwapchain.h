@@ -16,6 +16,7 @@ public:
 
     vk::SurfaceKHR GetSurface();
     vk::Format GetSwapcahinFormat();
+    vk::Extent2D GetExtent();
 
 private:
 
