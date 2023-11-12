@@ -5,31 +5,33 @@
 
 VulkanRenderer::~VulkanRenderer() {
     Destroy();
-    printf("VulkanRenderer::~\n");
+    printf("\nVulkanRenderer::~");
 }
 
 void VulkanRenderer::Resize() {
-    printf("VulkanRenderer::Resize\n");
+    printf("\nVulkanRenderer::Resize");
 }
 
 void VulkanRenderer::BeginFrame() {
-    printf("VulkanRenderer::BeginFrame\n");
+    printf("\nVulkanRenderer::BeginFrame");
 }
 
 void VulkanRenderer::EndFrame() {
-    printf("VulkanRenderer::EndFrame\n");
+    printf("\nVulkanRenderer::EndFrame");
 }
 
 void VulkanRenderer::Destroy() {
     m_VulkanContext->Cleanup();
 
     delete m_VulkanContext;
-    printf("VulkanRenderer::Destroy\n");
+    printf("\nVulkanRenderer::Destroy");
 }
 
 void VulkanRenderer::Initialize(const char* applicationName) {
-    printf("VulkanRenderer::Initialize\n");
+    printf("\nVulkanRenderer::Initialize");
     m_VulkanContext = new VulkanContext();
-
-    m_VulkanContext->Initialize(applicationName);
+    if (!m_VulkanContext->Initialize(applicationName)) {
+        delete m_VulkanContext;
+        throw std::runtime_error("Vulkan not inited");
+    }
 }

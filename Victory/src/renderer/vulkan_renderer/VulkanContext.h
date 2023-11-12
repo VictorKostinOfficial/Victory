@@ -2,13 +2,17 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <optional>
+
+class GLFWwindow;
+
 class VulkanContext {
 public:
 
     VulkanContext() = default;
     ~VulkanContext() = default;
 
-    void Initialize(const char* applicationName_);
+    bool Initialize(const char* applicationName_);
     void Cleanup();
 
     vk::Instance GetInstance() const;
@@ -24,21 +28,31 @@ private:
     void RegisterDebugUtilsMessenger();
 #endif // NDEBUG
 
-    void PickPhysicalDevice();
+    bool CreateSurface();
+    bool PickPhysicalDevice();
+    uint32_t RateDeviceSuitability(vk::PhysicalDevice& phDevice_);
     bool PickQueueIndecies(vk::PhysicalDevice& phDevice_);
-    void CreateLogicalDevice();
+    bool CreateLogicalDevice();
 
 private:
 
-    vk::Instance m_Instance;
+    vk::Instance m_Instance{VK_NULL_HANDLE};
+    vk::PhysicalDevice m_PhysicalDevice{VK_NULL_HANDLE};
+    vk::Device m_Device{VK_NULL_HANDLE};
+    vk::SurfaceKHR m_Surface{VK_NULL_HANDLE};
+
+    std::vector<const char*> m_DeviceExtensions {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME 
+    };
+
     uint32_t m_GraphicsQueueIndex{UINT32_MAX};
     uint32_t m_PresentQueueIndex{UINT32_MAX};
     uint32_t m_ComputeQueueIndex{UINT32_MAX};
     uint32_t m_TransferQueueIndex{UINT32_MAX};
-    vk::PhysicalDevice m_PhysicalDevice;
-    vk::Device m_Device;
+
+    GLFWwindow* m_Window;
 
 #ifndef NDEBUG
-    vk::DebugUtilsMessengerEXT m_DebugMessenger{ VK_NULL_HANDLE };
+    vk::DebugUtilsMessengerEXT m_DebugMessenger{VK_NULL_HANDLE};
 #endif // NDEBUG
 };

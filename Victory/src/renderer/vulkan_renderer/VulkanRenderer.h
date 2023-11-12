@@ -2,8 +2,6 @@
 
 #include "../Renderer.h"
 
-#include <memory>
-
 class VulkanContext;
 
 class VulkanRenderer : public Renderer {

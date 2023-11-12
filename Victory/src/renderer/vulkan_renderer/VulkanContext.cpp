@@ -3,24 +3,50 @@
 #include <GLFW/glfw3.h>
 
 #include <stdio.h>
+#include <set>
 
-void VulkanContext::Initialize(const char* applicationName_) {
+bool VulkanContext::Initialize(const char* applicationName_) {
+    if (!glfwInit()) {
+        printf("\nGLFW not inited");
+        return false;
+    }
+
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    m_Window = glfwCreateWindow(1280, 720, "Victory", nullptr, nullptr);
+    if (!m_Window) {
+        glfwTerminate();
+        printf("\nGLFW window not inited");
+        return false;
+    }
+
     CreateInstance(applicationName_);
 #ifndef NDEBUG
     RegisterDebugUtilsMessenger();
 #endif // NDEBUG
-    PickPhysicalDevice();
-    CreateLogicalDevice();
+
+    if (!CreateSurface()) {
+        return false;
+    }
+    if (!PickPhysicalDevice()) {
+        return false;
+    }
+    if (!CreateLogicalDevice()) {
+        return false;
+    }
+    
+
+    return true;
 }
 
 void VulkanContext::Cleanup() {
     m_Device.destroy();
+    m_Instance.destroySurfaceKHR(m_Surface);
 #ifndef NDEBUG
     vk::DispatchLoaderDynamic dynamicLoader(m_Instance, vkGetInstanceProcAddr);
     m_Instance.destroyDebugUtilsMessengerEXT(m_DebugMessenger, nullptr, dynamicLoader);
 #endif // NDEBUG
     m_Instance.destroy();
-    printf("VulkanInstance::Cleanup\n");
+    printf("\nVulkanInstance::Cleanup");
 }
 
 vk::Instance VulkanContext::GetInstance() const{
@@ -57,7 +83,7 @@ void VulkanContext::CreateInstance(const char* applicationName_) {
         extensions
     };
 
-    printf("VulkanInstance::Initialize\n");
+    printf("\nVulkanInstance::Initialize");
     m_Instance = vk::createInstance(instanceCI);
 }
 
@@ -72,8 +98,6 @@ void VulkanContext::CollectExtensions(std::vector<const char*>& extensions_) {
     extensions_.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif // NDEBUG
 
-    // TODO: Remove glfwInit
-    glfwInit();
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
     extensions_.reserve(glfwExtensionCount + 1);
@@ -108,33 +132,86 @@ void VulkanContext::RegisterDebugUtilsMessenger()  {
 }
 #endif // NDEBUG
 
-void VulkanContext::PickPhysicalDevice() {
+bool VulkanContext::CreateSurface() {
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(static_cast<VkInstance>(m_Instance), m_Window, nullptr, &surface)) {
+        glfwDestroyWindow(m_Window);
+        glfwTerminate();
+        printf("\nGLFW surface was not created");
+        return false;
+    }
+
+    m_Surface = static_cast<vk::SurfaceKHR>(surface);
+    return true;
+}
+
+bool VulkanContext::PickPhysicalDevice() {
     std::vector<vk::PhysicalDevice> physicalDevices = m_Instance.enumeratePhysicalDevices();
+
+    if (physicalDevices.size() == 0) {
+        printf("\nFailed to find GPUs with Vulkan support");
+        return false;
+    }
+    
+    uint32_t rateScore{0};
     for (auto&& phDevice : physicalDevices) {
-        const vk::PhysicalDeviceProperties properties = phDevice.getProperties();
-        const vk::PhysicalDeviceFeatures features = phDevice.getFeatures();
-
-        bool discrete = properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
-
-#ifndef NDEBUG
-        if (!discrete) {
-            discrete = properties.deviceType == vk::PhysicalDeviceType::eCpu;
-        }
-#endif // NDEBUG
-
-        if (!discrete) {
-            continue;
-        }
-
-        if (PickQueueIndecies(phDevice)) {
+        const uint32_t score = RateDeviceSuitability(phDevice);
+        if (rateScore < score) {
+            rateScore = score;
             m_PhysicalDevice = phDevice;
-            break;
         }
     }
 
     if (!m_PhysicalDevice) {
-        throw std::runtime_error("Suitable GPU was not found");
+        printf("\nSuitable GPU was not found");
+        return false;
     }
+
+    if (!PickQueueIndecies(m_PhysicalDevice)) {
+        printf("\nGraphics Family Queue was not found");
+        return false;
+    }
+
+    return true;
+}
+
+uint32_t VulkanContext::RateDeviceSuitability(vk::PhysicalDevice& phDevice_) {
+    const vk::PhysicalDeviceFeatures features = phDevice_.getFeatures();
+    if (!features.geometryShader) {
+        return 0;
+    }
+
+    // Check other features ...
+
+    const vk::PhysicalDeviceProperties properties = phDevice_.getProperties();
+
+    uint32_t score{0};
+    bool suitable = properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+    score += 100 * suitable;
+
+#ifndef NDEBUG
+    suitable = properties.deviceType == vk::PhysicalDeviceType::eCpu;
+    score += 10 * suitable;
+#endif // NDEBUG
+
+    // Check other properties ...
+
+    const std::vector<vk::ExtensionProperties> availableExtensions = 
+        phDevice_.enumerateDeviceExtensionProperties();
+    std::set<std::string> requiredExtensions(m_DeviceExtensions.begin(), m_DeviceExtensions.end());
+
+    for (auto&& extension : availableExtensions) {
+        requiredExtensions.erase(extension.extensionName);
+        if (requiredExtensions.empty()) {
+            break;;
+        }
+    }
+
+    if (!requiredExtensions.empty()) {
+        return 0;
+    }
+    
+    return score;
 }
 
 bool VulkanContext::PickQueueIndecies(vk::PhysicalDevice& phDevice_) {
@@ -149,9 +226,12 @@ bool VulkanContext::PickQueueIndecies(vk::PhysicalDevice& phDevice_) {
         if (m_GraphicsQueueIndex == UINT32_MAX && property.queueFlags & vk::QueueFlagBits::eGraphics) {
             m_GraphicsQueueIndex = i;
             ++score;
+        }
 
-            // TODO: Present queue, need surface
-            m_PresentQueueIndex = m_GraphicsQueueIndex;
+        // Present queu
+        if (m_PresentQueueIndex == UINT32_MAX && phDevice_.getSurfaceSupportKHR(i, m_Surface)) {
+            m_PresentQueueIndex = i;
+            ++score;
         }
 
         // Compute queue
@@ -167,20 +247,15 @@ bool VulkanContext::PickQueueIndecies(vk::PhysicalDevice& phDevice_) {
         }
     }
 
-    if (m_GraphicsQueueIndex == UINT32_MAX) {
-        // TODO: Complex check, now just check graphics Queue
-        return false;
-    }
-
     printf("\nGraphics Queue Index: %u", m_GraphicsQueueIndex);
     printf("\nPresent Queue Index: %u", m_PresentQueueIndex);
     printf("\nCompute Queue Index: %u", m_ComputeQueueIndex);
-    printf("\nTransfer Queue Index: %u\n", m_TransferQueueIndex);
+    printf("\nTransfer Queue Index: %u", m_TransferQueueIndex);
 
-    return true;
+    return !(m_GraphicsQueueIndex == UINT32_MAX);
 }
 
-void VulkanContext::CreateLogicalDevice() {
+bool VulkanContext::CreateLogicalDevice() {
     std::vector<uint32_t> queueIndecies;
     queueIndecies.reserve(4);
     
@@ -199,20 +274,26 @@ void VulkanContext::CreateLogicalDevice() {
     //       create 2 queue with queue priorities 0.9 and 1
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCIs;
     deviceQueueCIs.reserve(queueIndecies.size());
-    std::vector<float> queuePriorities{ 0.9f, 1.f };
+    std::vector<float> queuePriorities{ 1.f, 0.9f };
     for (size_t i{0}; float queueIndex : queueIndecies) {
-        auto&& deviceQueueCI = 
-            vk::DeviceQueueCreateInfo({}, queueIndex, 1, &queuePriorities[1]);
+        vk::DeviceQueueCreateInfo&& deviceQueueCI = vk::DeviceQueueCreateInfo({}, 
+            queueIndex, 
+            1, 
+            queueIndex == 0 ? &queuePriorities[0] : &queuePriorities[1]
+        );
         deviceQueueCIs.emplace_back(deviceQueueCI);
     }
  
     std::vector<const char*> layers{};
-    std::vector<const char*> extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    vk::PhysicalDeviceFeatures features{};
 
     vk::DeviceCreateInfo deviceCI{{},
         deviceQueueCIs,
         layers,
-        extensions
+        m_DeviceExtensions,
+        &features
     };
+
     m_Device = m_PhysicalDevice.createDevice(deviceCI);
+    return true;
 }
