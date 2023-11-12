@@ -30,21 +30,24 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext *context_, GLFWwindow *windo
         return false;
     }
 
-    vk::SurfaceFormatKHR surfaceFormat = ChooseSwapchainSurfaceFormat(surfaceFormats);
-    vk::PresentModeKHR presentMode = ChoosePresentationModeFormat(presentModes);
-    vk::Extent2D extent = ChooseSwapchainExtent(capabilities, window_);
+    m_SurfaceFormat = ChooseSwapchainSurfaceFormat(surfaceFormats);
+    m_PresentMode = ChoosePresentationModeFormat(presentModes);
+    m_Extent = ChooseSwapchainExtent(capabilities, window_);
 
     uint32_t imageCount = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
         imageCount = capabilities.maxImageCount;
     }
 
+    m_Images.reserve(imageCount);
+    m_ImageViews.reserve(imageCount);
+
     vk::SwapchainCreateInfoKHR swapchainCI{{},
         m_Surface,
         imageCount,
-        surfaceFormat.format,
-        surfaceFormat.colorSpace,
-        extent,
+        m_SurfaceFormat.format,
+        m_SurfaceFormat.colorSpace,
+        m_Extent,
         1,
         vk::ImageUsageFlagBits::eColorAttachment
         // If i want postprocess need value like VK_IMAGE_USAGE_TRANSFER_DST_BIT
@@ -63,17 +66,44 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext *context_, GLFWwindow *windo
 
     swapchainCI.preTransform = capabilities.currentTransform;
     swapchainCI.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-    swapchainCI.presentMode = presentMode;
+    swapchainCI.presentMode = m_PresentMode;
     swapchainCI.clipped = VK_TRUE;
     swapchainCI.oldSwapchain = VK_NULL_HANDLE;
 
     m_Swapchain = context_->GetDevice().createSwapchainKHR(swapchainCI);
+    m_Images = context_->GetDevice().getSwapchainImagesKHR(m_Swapchain);
     return true;
+}
+
+bool VulkanSwapchain::CreateImageViews(VulkanContext *context_) {
+    vk::Device device = context_->GetDevice();
+    vk::ImageViewCreateInfo imageViewCI{};
+    for (auto&& image : m_Images) {
+        imageViewCI.image = image;
+        imageViewCI.viewType = vk::ImageViewType::e2D;
+        imageViewCI.format = m_SurfaceFormat.format;
+        imageViewCI.components.r = vk::ComponentSwizzle::eIdentity;
+        imageViewCI.components.g = vk::ComponentSwizzle::eIdentity;
+        imageViewCI.components.b = vk::ComponentSwizzle::eIdentity;
+        imageViewCI.components.a = vk::ComponentSwizzle::eIdentity;
+        imageViewCI.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        imageViewCI.subresourceRange.baseArrayLayer = 0;
+        imageViewCI.subresourceRange.levelCount = 0;
+        imageViewCI.subresourceRange.baseArrayLayer = 0;
+        imageViewCI.subresourceRange.layerCount = 0;
+
+        vk::ImageView imageView = device.createImageView(imageViewCI);
+        m_ImageViews.emplace_back(imageView);
+    }
+    return false;
 }
 
 void VulkanSwapchain::Cleanup(VulkanContext *context_) {
     vk::Instance instance = context_->GetInstance();
     vk::Device device = context_->GetDevice();
+    for (auto&& imageView : m_ImageViews) {
+        device.destroyImageView(imageView);
+    }
     device.destroySwapchainKHR(m_Swapchain);
     instance.destroySurfaceKHR(m_Surface);
 }

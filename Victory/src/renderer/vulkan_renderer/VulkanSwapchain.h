@@ -8,8 +8,10 @@ class VulkanContext;
 class VulkanSwapchain {
 public:
 
+    // Mb store context inside the class
     bool CreateSurface(VulkanContext* context_, GLFWwindow* window_);
     bool CreateSwapchain(VulkanContext* context_, GLFWwindow* window_);
+    bool CreateImageViews(VulkanContext* context_);
     void Cleanup(VulkanContext* context_);
 
     vk::SurfaceKHR GetSurface();
@@ -25,6 +27,10 @@ private:
 
     vk::SurfaceKHR m_Surface{VK_NULL_HANDLE};
     vk::SwapchainKHR m_Swapchain{VK_NULL_HANDLE};
+
+    vk::SurfaceFormatKHR m_SurfaceFormat;
+    vk::PresentModeKHR m_PresentMode;
+    vk::Extent2D m_Extent;
 
     std::vector<vk::Image> m_Images;
     std::vector<vk::ImageView> m_ImageViews;

@@ -33,8 +33,6 @@ bool VulkanContext::CreateInstance(const char* applicationName_) {
     };
 
     m_Instance = vk::createInstance(instanceCI);
-
-    printf("\nVulkanInstance::Initialize");
     return true;
 }
 
@@ -118,7 +116,6 @@ void VulkanContext::Cleanup() {
     m_Instance.destroyDebugUtilsMessengerEXT(m_DebugMessenger, nullptr, dynamicLoader);
 #endif // NDEBUG
     m_Instance.destroy();
-    printf("\nVulkanInstance::Cleanup");
 }
 
 vk::Instance VulkanContext::GetInstance() {
