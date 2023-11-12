@@ -17,7 +17,7 @@ protected:
 
 private:
 
-    virtual void Initialize(const char* applicationName) = 0;
+    virtual bool Initialize(const char* applicationName) = 0;
     virtual void Destroy() = 0;
 
     static Renderer* s_Instance;
