@@ -13,6 +13,9 @@ public:
     bool CreatePipeline(VulkanContext* context_, VulkanSwapchain* swapchain_);
     void Cleanup(VulkanContext* context_);
 
+    const vk::RenderPass GetRenderPass() const;
+    const vk::Pipeline GetPipeline() const;
+
     vk::ShaderModule LoadShader(vk::Device device_, std::vector<char> buffer_);
 
 private:

@@ -7,13 +7,16 @@ class GLFWwindow;
 class VulkanContext;
 class VulkanSwapchain;
 class VulkanPipeline;
-class VulkanFrameBuffers;
+class VulkanFrameBuffer;
 
 class VulkanRenderer : public Renderer {
 public:
 
     VulkanRenderer();
     virtual ~VulkanRenderer();
+
+    virtual bool IsRunning() override;
+    virtual void PollEvents() override;
 
     virtual void Resize() override;
     virtual void BeginFrame() override;
@@ -31,5 +34,5 @@ private:
     VulkanContext* m_VulkanContext;
     VulkanSwapchain* m_VulkanSwapchain;
     VulkanPipeline* m_VulkanPipeline;
-    VulkanFrameBuffers* m_VulkanFrameBuffers;
+    VulkanFrameBuffer* m_VulkanFrameBuffer;
 };

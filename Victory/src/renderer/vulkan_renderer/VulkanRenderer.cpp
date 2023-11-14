@@ -2,29 +2,37 @@
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
-#include "VulkanFrameBuffers.h"
+#include "VulkanFrameBuffer.h"
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
 #include <stdio.h>
 
-// TODO: Change new on static members
+// TODO: Change from new to static members
 VulkanRenderer::VulkanRenderer()
  : m_VulkanContext(new VulkanContext())
  , m_VulkanSwapchain(new VulkanSwapchain())
- , m_VulkanPipeline(new VulkanPipeline()) {
-}
+ , m_VulkanPipeline(new VulkanPipeline()) 
+ , m_VulkanFrameBuffer(new VulkanFrameBuffer()) { }
 
-VulkanRenderer::~VulkanRenderer()
-{
+VulkanRenderer::~VulkanRenderer() {
     Destroy();
 
+    delete m_VulkanFrameBuffer;
     delete m_VulkanPipeline;
     delete m_VulkanSwapchain;
     delete m_VulkanContext;
 
     printf("\nVulkanRenderer::~");
+}
+
+bool VulkanRenderer::IsRunning() {
+    return !glfwWindowShouldClose(m_Window);
+}
+
+void VulkanRenderer::PollEvents() {
+    glfwPollEvents();
 }
 
 void VulkanRenderer::Resize() {
@@ -100,7 +108,21 @@ bool VulkanRenderer::Initialize(const char* applicationName_) {
         return false;
     }
 
-    if (!m_VulkanFrameBuffers->CreateFrameBuffers(m_VulkanContext)) {
+    // Vulkan not executed directly using function calls
+    // You have to record all of the operations in command buffer
+    if (!m_VulkanFrameBuffer->CreateFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline)) {
+        return false;
+    }
+
+    // Command pool acts as a container for command buffers,
+    // that manages the allocation and management of command buffers
+    if (!m_VulkanFrameBuffer->CreateCommandPool(m_VulkanContext)) {
+        return false;
+    }
+
+    // command buffer used to record commands 
+    // that are submitted to the GPU for execution
+    if (!m_VulkanFrameBuffer->CreateCommandBuffer(m_VulkanContext)) {
         return false;
     }
 

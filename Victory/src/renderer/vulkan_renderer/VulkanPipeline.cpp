@@ -176,6 +176,14 @@ void VulkanPipeline::Cleanup(VulkanContext* context_) {
     device.destroyShaderModule(VS);
 }
 
+const vk::RenderPass VulkanPipeline::GetRenderPass() const {
+    return m_RenderPass;
+}
+
+const vk::Pipeline VulkanPipeline::GetPipeline() const {
+    return m_Pipeline;
+}
+
 vk::ShaderModule VulkanPipeline::LoadShader(vk::Device device_, std::vector<char> buffer_) {
     vk::ShaderModuleCreateInfo shaderModuleCI{};
     shaderModuleCI.setCodeSize(buffer_.size());

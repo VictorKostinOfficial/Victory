@@ -7,6 +7,9 @@ public:
 
     static Renderer* CreateRenderer(const char* applicationName);
 
+    virtual bool IsRunning() = 0;
+    virtual void PollEvents() = 0;
+
     virtual void Resize() = 0;
     virtual void BeginFrame() = 0;
     virtual void EndFrame() = 0;

@@ -14,9 +14,10 @@ public:
     bool CreateImageViews(VulkanContext* context_);
     void Cleanup(VulkanContext* context_);
 
-    vk::SurfaceKHR GetSurface();
-    vk::Format GetSwapchainFormat();
-    vk::Extent2D GetExtent();
+    const vk::SurfaceKHR GetSurface() const;
+    const vk::Format GetSwapchainFormat() const;
+    const vk::Extent2D GetExtent() const ;
+    const std::vector<vk::ImageView>& GetImageViews() const;
 
 private:
 

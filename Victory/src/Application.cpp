@@ -22,12 +22,13 @@ Application::~Application() {
 void Application::Run() {
     Renderer* pRenderer = Renderer::CreateRenderer(m_ApplicationSpec.Name);
 
-    // while (m_IsRunning)
-    // {
-    //     pRenderer->Resize();
-    //     pRenderer->BeginFrame();
-    //     pRenderer->EndFrame();
-    // }
+    while (pRenderer->IsRunning())
+    {
+        pRenderer->PollEvents();
+        pRenderer->Resize();
+        pRenderer->BeginFrame();
+        pRenderer->EndFrame();
+    }
 
     // TODO: Make RAII?
     delete pRenderer;

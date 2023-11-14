@@ -108,16 +108,20 @@ void VulkanSwapchain::Cleanup(VulkanContext *context_) {
     instance.destroySurfaceKHR(m_Surface);
 }
 
-vk::SurfaceKHR VulkanSwapchain::GetSurface() {
+const vk::SurfaceKHR VulkanSwapchain::GetSurface() const{
     return m_Surface;
 }
 
-vk::Format VulkanSwapchain::GetSwapchainFormat() {
+const vk::Format VulkanSwapchain::GetSwapchainFormat() const{
     return m_SurfaceFormat.format;
 }
 
-vk::Extent2D VulkanSwapchain::GetExtent() {
+const vk::Extent2D VulkanSwapchain::GetExtent() const{
     return m_Extent;
+}
+
+const std::vector<vk::ImageView>& VulkanSwapchain::GetImageViews() const{
+    return m_ImageViews;
 }
 
 vk::SurfaceFormatKHR VulkanSwapchain::ChooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats_) {
