@@ -3,6 +3,7 @@
 #include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
 #include "VulkanFrameBuffer.h"
+#include "VulkanSynchronization.h"
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -41,13 +42,58 @@ void VulkanRenderer::Resize() {
 
 void VulkanRenderer::BeginFrame() {
     printf("\nVulkanRenderer::BeginFrame");
+
+    vk::Device device = m_VulkanContext->GetDevice();
+    if (device.waitForFences(m_InFlightFence, VK_TRUE, UINT64_MAX) != vk::Result::eSuccess) {
+        throw std::runtime_error("Wait for fences = false");
+    }
+    device.resetFences(m_InFlightFence);
+
+    uint32_t imageIndex = device.acquireNextImageKHR(m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphore).value;
+
+    vk::CommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(imageIndex);
+    commandBuffer.reset();
+
+    m_VulkanFrameBuffer->RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, imageIndex);
+
+    std::vector<vk::Semaphore> waitSemaphores{m_AvailableSemaphore};
+    std::vector<vk::Semaphore> signalSemaphores{m_FinishedSemaphore};
+    std::vector<vk::PipelineStageFlags> waitStages{vk::PipelineStageFlagBits::eColorAttachmentOutput};
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.setWaitSemaphores(waitSemaphores);
+    submitInfo.setWaitDstStageMask(waitStages);
+    submitInfo.setCommandBuffers(commandBuffer);
+    submitInfo.setSignalSemaphores(signalSemaphores);
+
+    vk::Queue graphicsQueue = device.getQueue(m_VulkanContext->GetQueueIndex(0), 0);
+    graphicsQueue.submit(submitInfo, m_InFlightFence);
+
+    vk::SwapchainKHR swaps = m_VulkanSwapchain->GetSwapchain();
+    std::vector<vk::SwapchainKHR> swapchains = {swaps};
+
+    vk::PresentInfoKHR presentInfo{};
+    presentInfo.setWaitSemaphores(signalSemaphores);
+    presentInfo.setSwapchains(swaps);
+    presentInfo.setImageIndices(imageIndex);
+
+    vk::Queue presentQueue = device.getQueue(m_VulkanContext->GetQueueIndex(1), 0);
+    if (presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess) {
+        throw std::runtime_error("Not presented");
+    }
+
 }
 
 void VulkanRenderer::EndFrame() {
+    m_VulkanContext->GetDevice().waitIdle();
     printf("\nVulkanRenderer::EndFrame");
 }
 
 void VulkanRenderer::Destroy() {
+    m_VulkanContext->GetDevice().destroySemaphore(m_AvailableSemaphore);
+    m_VulkanContext->GetDevice().destroySemaphore(m_FinishedSemaphore);
+    m_VulkanContext->GetDevice().destroyFence(m_InFlightFence);
+    m_VulkanFrameBuffer->Cleanup(m_VulkanContext);
     m_VulkanPipeline->Cleanup(m_VulkanContext);
     m_VulkanSwapchain->Cleanup(m_VulkanContext);
     m_VulkanContext->Cleanup();
@@ -96,6 +142,10 @@ bool VulkanRenderer::Initialize(const char* applicationName_) {
         return false;
     }
 
+    if (!m_VulkanSwapchain->CreateImageViews(m_VulkanContext)) {
+        return false;
+    }
+
     if (!m_VulkanPipeline->CreateRenderPass(m_VulkanContext->GetDevice(), m_VulkanSwapchain->GetSwapchainFormat())) {
         return false;
     }
@@ -125,6 +175,10 @@ bool VulkanRenderer::Initialize(const char* applicationName_) {
     if (!m_VulkanFrameBuffer->CreateCommandBuffer(m_VulkanContext)) {
         return false;
     }
+
+    m_AvailableSemaphore = CreateSemaphore(m_VulkanContext->GetDevice());
+    m_FinishedSemaphore = CreateSemaphore(m_VulkanContext->GetDevice());
+    m_InFlightFence = CreateFence(m_VulkanContext->GetDevice());
 
     return true;
 }

@@ -2,6 +2,8 @@
 
 #include "../Renderer.h"
 
+#include "vulkan/vulkan.hpp"
+
 class GLFWwindow;
 
 class VulkanContext;
@@ -29,10 +31,16 @@ private:
 
 private: 
 
+    // TODO: till we include vulkan.hpp here
+    // we can save state here and rid of all pointers
     GLFWwindow* m_Window;
 
     VulkanContext* m_VulkanContext;
     VulkanSwapchain* m_VulkanSwapchain;
     VulkanPipeline* m_VulkanPipeline;
     VulkanFrameBuffer* m_VulkanFrameBuffer;
+
+    vk::Semaphore m_AvailableSemaphore{VK_NULL_HANDLE};
+    vk::Semaphore m_FinishedSemaphore{VK_NULL_HANDLE};
+    vk::Fence m_InFlightFence{VK_NULL_HANDLE};
 };

@@ -46,23 +46,26 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
     // Scissor which regions pixels will actually be stored
     // https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
 
-    vk::Extent2D extent = swapchain_->GetExtent();
-    vk::Viewport viewport{};
-    viewport.setX(0.f);
-    viewport.setY(0.f);
-    viewport.setWidth(static_cast<float>(extent.width));
-    viewport.setWidth(static_cast<float>(extent.height));
-    viewport.setMinDepth(0.f);
-    viewport.setMaxDepth(1.f);
+    // vk::Extent2D extent = swapchain_->GetExtent();
+    // vk::Viewport viewport{};
+    // viewport.setX(0.f);
+    // viewport.setY(0.f);
+    // viewport.setWidth(static_cast<float>(extent.width));
+    // viewport.setWidth(static_cast<float>(extent.height));
+    // viewport.setMinDepth(0.f);
+    // viewport.setMaxDepth(1.f);
 
-    vk::Rect2D scissor{};
-    scissor.setOffset({0,0});
-    scissor.setExtent(extent);
+    // vk::Rect2D scissor{};
+    // scissor.setOffset({0,0});
+    // scissor.setExtent(extent);
 
-    // Static state?
+    // Dynamic state
     vk::PipelineViewportStateCreateInfo viewportStateCI{};
-    viewportStateCI.setViewports(viewport);
-    viewportStateCI.setScissors(scissor);
+    viewportStateCI.setViewportCount(1);
+    viewportStateCI.setScissorCount(1);
+    // Static state
+    // viewportStateCI.setViewports(viewport);
+    // viewportStateCI.setScissors(scissor);
 
     vk::PipelineRasterizationStateCreateInfo rasterizationStateCI{};
     rasterizationStateCI.setDepthClampEnable(VK_FALSE);
@@ -92,12 +95,12 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
                                                 vk::ColorComponentFlagBits::eB | 
                                                 vk::ColorComponentFlagBits::eA);
     colorBlendAttachmentState.setBlendEnable(VK_FALSE);
-    colorBlendAttachmentState.setSrcColorBlendFactor(vk::BlendFactor::eOne);
-    colorBlendAttachmentState.setDstColorBlendFactor(vk::BlendFactor::eZero);
-    colorBlendAttachmentState.setColorBlendOp(vk::BlendOp::eAdd);
-    colorBlendAttachmentState.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
-    colorBlendAttachmentState.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
-    colorBlendAttachmentState.setAlphaBlendOp(vk::BlendOp::eAdd);
+    // colorBlendAttachmentState.setSrcColorBlendFactor(vk::BlendFactor::eOne);
+    // colorBlendAttachmentState.setDstColorBlendFactor(vk::BlendFactor::eZero);
+    // colorBlendAttachmentState.setColorBlendOp(vk::BlendOp::eAdd);
+    // colorBlendAttachmentState.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
+    // colorBlendAttachmentState.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
+    // colorBlendAttachmentState.setAlphaBlendOp(vk::BlendOp::eAdd);
 
     vk::PipelineColorBlendStateCreateInfo colorBlendStateCI{};
     colorBlendStateCI.setLogicOpEnable(VK_FALSE);
@@ -122,7 +125,7 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
     pipelineCI.setBasePipelineIndex(-1);
 
     m_Pipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, pipelineCI).value;
-    return false;
+    return true;
 }
 
 bool VulkanPipeline::CreateRenderPass(vk::Device device_, vk::Format format_) {
@@ -146,9 +149,18 @@ bool VulkanPipeline::CreateRenderPass(vk::Device device_, vk::Format format_) {
     // The index of the attachment in this array is directly referenced from the 
     // fragment shader with the layout(location = 0) out vec4 outColor directive!
 
+    vk::SubpassDependency dependecy{};
+    dependecy.setSrcSubpass(vk::SubpassExternal);
+    dependecy.setDstSubpass(0);
+    dependecy.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    dependecy.setSrcAccessMask(vk::AccessFlagBits::eNone);
+    dependecy.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    dependecy.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+
     vk::RenderPassCreateInfo renderPassCI{};
     renderPassCI.setAttachments(colorAttachment);
     renderPassCI.setSubpasses(subpass);
+    renderPassCI.setDependencies(dependecy);
 
     m_RenderPass = device_.createRenderPass(renderPassCI);
     return true;

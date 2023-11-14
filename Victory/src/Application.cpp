@@ -25,8 +25,8 @@ void Application::Run() {
     while (pRenderer->IsRunning())
     {
         pRenderer->PollEvents();
-        pRenderer->Resize();
         pRenderer->BeginFrame();
+        pRenderer->Resize();
         pRenderer->EndFrame();
     }
 

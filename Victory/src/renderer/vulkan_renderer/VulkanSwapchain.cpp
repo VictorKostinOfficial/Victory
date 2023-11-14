@@ -88,14 +88,14 @@ bool VulkanSwapchain::CreateImageViews(VulkanContext *context_) {
         imageViewCI.components.a = vk::ComponentSwizzle::eIdentity;
         imageViewCI.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
         imageViewCI.subresourceRange.baseArrayLayer = 0;
-        imageViewCI.subresourceRange.levelCount = 0;
+        imageViewCI.subresourceRange.levelCount = 1;
         imageViewCI.subresourceRange.baseArrayLayer = 0;
-        imageViewCI.subresourceRange.layerCount = 0;
+        imageViewCI.subresourceRange.layerCount = 1;
 
         vk::ImageView imageView = device.createImageView(imageViewCI);
         m_ImageViews.emplace_back(imageView);
     }
-    return false;
+    return true;
 }
 
 void VulkanSwapchain::Cleanup(VulkanContext *context_) {
@@ -112,6 +112,10 @@ const vk::SurfaceKHR VulkanSwapchain::GetSurface() const{
     return m_Surface;
 }
 
+const vk::SwapchainKHR VulkanSwapchain::GetSwapchain() const {
+    return m_Swapchain;
+}
+
 const vk::Format VulkanSwapchain::GetSwapchainFormat() const{
     return m_SurfaceFormat.format;
 }
@@ -126,7 +130,7 @@ const std::vector<vk::ImageView>& VulkanSwapchain::GetImageViews() const{
 
 vk::SurfaceFormatKHR VulkanSwapchain::ChooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats_) {
     for (auto&& format : formats_) {
-        if (format.format == vk::Format::eB8G8R8A8Srgb &&
+        if (format.format == vk::Format::eB8G8R8A8Unorm &&
             format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
             return format;
         }

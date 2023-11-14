@@ -15,6 +15,7 @@ public:
     void Cleanup(VulkanContext* context_);
 
     const vk::SurfaceKHR GetSurface() const;
+    const vk::SwapchainKHR GetSwapchain() const;
     const vk::Format GetSwapchainFormat() const;
     const vk::Extent2D GetExtent() const ;
     const std::vector<vk::ImageView>& GetImageViews() const;
