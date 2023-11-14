@@ -8,17 +8,19 @@ class VulkanSwapchain;
 class VulkanPipeline {
 public:
 
+    bool CreateRenderPass(vk::Device device_, vk::Format format_);
+    bool CreatePipelineLayout(vk::Device device_);
     bool CreatePipeline(VulkanContext* context_, VulkanSwapchain* swapchain_);
-    bool CreatePipelineLayout();
     void Cleanup(VulkanContext* context_);
 
-    static vk::ShaderModule LoadShader(vk::Device device_, std::string&& path_);
+    vk::ShaderModule LoadShader(vk::Device device_, std::vector<char> buffer_);
 
 private:
-
-    std::vector<vk::ShaderModule> m_ShaderModules;
 
     vk::Pipeline m_Pipeline{VK_NULL_HANDLE};
     vk::PipelineLayout m_PipelineLayout{VK_NULL_HANDLE};
     vk::RenderPass m_RenderPass{VK_NULL_HANDLE};
+
+    vk::ShaderModule VS{VK_NULL_HANDLE};
+    vk::ShaderModule FS{VK_NULL_HANDLE};
 };

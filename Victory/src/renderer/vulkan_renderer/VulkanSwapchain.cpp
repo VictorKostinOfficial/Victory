@@ -112,8 +112,8 @@ vk::SurfaceKHR VulkanSwapchain::GetSurface() {
     return m_Surface;
 }
 
-vk::Format VulkanSwapchain::GetSwapcahinFormat() {
-    return vk::Format();
+vk::Format VulkanSwapchain::GetSwapchainFormat() {
+    return m_SurfaceFormat.format;
 }
 
 vk::Extent2D VulkanSwapchain::GetExtent() {

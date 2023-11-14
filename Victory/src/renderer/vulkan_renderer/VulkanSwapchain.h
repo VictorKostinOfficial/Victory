@@ -15,7 +15,7 @@ public:
     void Cleanup(VulkanContext* context_);
 
     vk::SurfaceKHR GetSurface();
-    vk::Format GetSwapcahinFormat();
+    vk::Format GetSwapchainFormat();
     vk::Extent2D GetExtent();
 
 private:

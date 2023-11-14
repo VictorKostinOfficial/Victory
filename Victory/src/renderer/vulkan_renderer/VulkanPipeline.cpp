@@ -2,37 +2,30 @@
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
 
-#include <stdio.h>
+#include "../../Utils.h"
 
 bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* swapchain_) {
     vk::Device device = context_->GetDevice();
 
-    // TODO: make function
-    vk::ShaderModule VS = 
-        VulkanPipeline::LoadShader(device, "shaders/triangle.vert.spv");
-    if (!VS) {
-        return false;
-    }
-    m_ShaderModules.emplace_back(VS);
-    vk::ShaderModule FS = 
-        VulkanPipeline::LoadShader(device, "shaders/triangle.frag.spv");
-    if (!FS) {
-        return false;
-    }
-    m_ShaderModules.emplace_back(FS);
+    std::vector<char> vsBuffer = Utils::ReadFile("../../Victory/shaders/triangle.vert.spv");
+    std::vector<char> fsBuffer = Utils::ReadFile("../../Victory/shaders/triangle.frag.spv");
+    VS = LoadShader(device, vsBuffer);
+    FS = LoadShader(device, fsBuffer);
 
-    std::vector<vk::PipelineShaderStageCreateInfo> shaderStageCIs;
-    shaderStageCIs.reserve(m_ShaderModules.size());
-    for (auto&& shaderModule : m_ShaderModules) {
-        vk::PipelineShaderStageCreateInfo shaderStageCI{
-        {},
-        vk::ShaderStageFlagBits::eVertex,
-        shaderModule,
-        "main"
-        };
-
-        shaderStageCIs.emplace_back(shaderStageCI);
-    }
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStageCIs{
+        {
+            {},
+            vk::ShaderStageFlagBits::eVertex,
+            VS,
+            "main"
+        },
+        {
+            {},
+            vk::ShaderStageFlagBits::eFragment,
+            FS,
+            "main"
+        }
+    };
 
     std::vector<vk::DynamicState> dynamicStates{
         vk::DynamicState::eViewport,
@@ -112,21 +105,29 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
     colorBlendStateCI.setAttachments(colorBlendAttachmentState);
     colorBlendStateCI.setBlendConstants({0.f, 0.f, 0.f, 0.f});
 
-    vk::PipelineLayoutCreateInfo pipelineLayoutCI{};
-    pipelineLayoutCI.setSetLayoutCount(0);
-    pipelineLayoutCI.setPSetLayouts(nullptr);
-    pipelineLayoutCI.setPushConstantRangeCount(0);
-    pipelineLayoutCI.setPPushConstantRanges(nullptr);
+    vk::GraphicsPipelineCreateInfo pipelineCI{};
+    pipelineCI.setStages(shaderStageCIs);
+    pipelineCI.setPVertexInputState(&vertexInputStateCI);
+    pipelineCI.setPInputAssemblyState(&inputAssemblyStateCI);
+    pipelineCI.setPViewportState(&viewportStateCI);
+    pipelineCI.setPRasterizationState(&rasterizationStateCI);
+    pipelineCI.setPMultisampleState(&MultisampleStateCI);
+    pipelineCI.setPDepthStencilState(&depthStencilStateCI);
+    pipelineCI.setPColorBlendState(&colorBlendStateCI);
+    pipelineCI.setPDynamicState(&dynamicStateCI);
+    pipelineCI.setLayout(m_PipelineLayout);
+    pipelineCI.setRenderPass(m_RenderPass);
+    pipelineCI.setSubpass(0); // Index of render pass subpass
+    pipelineCI.setBasePipelineHandle(VK_NULL_HANDLE);
+    pipelineCI.setBasePipelineIndex(-1);
 
-    m_PipelineLayout = device.createPipelineLayout(pipelineLayoutCI);
+    m_Pipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, pipelineCI).value;
+    return false;
+}
 
-
-    // ------------------------------
-    // TODO: create function for creating Render pass
-    // ------------------------------
-
+bool VulkanPipeline::CreateRenderPass(vk::Device device_, vk::Format format_) {
     vk::AttachmentDescription colorAttachment{};
-    colorAttachment.setFormat(swapchain_->GetSwapcahinFormat());
+    colorAttachment.setFormat(format_);
     colorAttachment.setSamples(vk::SampleCountFlagBits::e1);
     colorAttachment.setLoadOp(vk::AttachmentLoadOp::eClear);
     colorAttachment.setStoreOp(vk::AttachmentStoreOp::eStore);
@@ -149,72 +150,36 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
     renderPassCI.setAttachments(colorAttachment);
     renderPassCI.setSubpasses(subpass);
 
-    m_RenderPass = device.createRenderPass(renderPassCI);
-
-    // ------------------------------
-    // TODO: create function for creating Pipeline
-    // ------------------------------
-
-    vk::GraphicsPipelineCreateInfo pipelineCI{};
-    pipelineCI.setStages(shaderStageCIs);
-    pipelineCI.setPVertexInputState(&vertexInputStateCI);
-    pipelineCI.setPInputAssemblyState(&inputAssemblyStateCI);
-    pipelineCI.setPViewportState(&viewportStateCI);
-    pipelineCI.setPRasterizationState(&rasterizationStateCI);
-    pipelineCI.setPMultisampleState(&MultisampleStateCI);
-    pipelineCI.setPDepthStencilState(&depthStencilStateCI);
-    pipelineCI.setPColorBlendState(&colorBlendStateCI);
-    pipelineCI.setPDynamicState(&dynamicStateCI);
-    pipelineCI.setLayout(m_PipelineLayout);
-    pipelineCI.setRenderPass(m_RenderPass);
-    pipelineCI.setSubpass(0); // Index of render pass subpass
-    pipelineCI.setBasePipelineHandle(VK_NULL_HANDLE);
-    pipelineCI.setBasePipelineIndex(-1);
-
-    m_Pipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, pipelineCI).value;
-    return false;
+    m_RenderPass = device_.createRenderPass(renderPassCI);
+    return true;
 }
 
-bool VulkanPipeline::CreatePipelineLayout() {
-    return false;
+bool VulkanPipeline::CreatePipelineLayout(vk::Device device_)
+{
+    vk::PipelineLayoutCreateInfo pipelineLayoutCI{};
+    pipelineLayoutCI.setSetLayoutCount(0);
+    pipelineLayoutCI.setPSetLayouts(nullptr);
+    pipelineLayoutCI.setPushConstantRangeCount(0);
+    pipelineLayoutCI.setPPushConstantRanges(nullptr);
+
+    m_PipelineLayout = device_.createPipelineLayout(pipelineLayoutCI);
+    return true;
 }
 
 void VulkanPipeline::Cleanup(VulkanContext* context_) {
     vk::Device device = context_->GetDevice();
 
     device.destroyPipeline(m_Pipeline);
-    device.destroyRenderPass(m_RenderPass);
     device.destroyPipelineLayout(m_PipelineLayout);
-    for (auto&& shaderModule : m_ShaderModules) {
-        device.destroyShaderModule(shaderModule);
-    }
+    device.destroyRenderPass(m_RenderPass);
+    device.destroyShaderModule(FS);
+    device.destroyShaderModule(VS);
 }
 
-vk::ShaderModule VulkanPipeline::LoadShader(vk::Device device_, std::string&& path_) {
-    // TODO: create utils for read file?
-    FILE* file = fopen(path_.c_str(), "rb");
-    if (file) {
-        // TODO: Handle error
-        printf("\nFile nor readed: %s", path_.c_str());
-        return VK_NULL_HANDLE;
-    }
-    fseek(file, 0, SEEK_END);
-    uint32_t length = static_cast<uint32_t>(ftell(file));
-    fseek(file, 0, SEEK_SET);
+vk::ShaderModule VulkanPipeline::LoadShader(vk::Device device_, std::vector<char> buffer_) {
+    vk::ShaderModuleCreateInfo shaderModuleCI{};
+    shaderModuleCI.setCodeSize(buffer_.size());
+    shaderModuleCI.setPCode(reinterpret_cast<const uint32_t*>(buffer_.data()));
 
-    char*buffer = new char[length];
-
-    size_t rc = fread(buffer, 1, length, file);
-    fclose(file);
-
-    vk::ShaderModuleCreateInfo shaderModuleCreateInfo{
-        {},
-        length,
-        reinterpret_cast<const uint32_t*>(buffer)
-    };
-
-    vk::ShaderModule shader = device_.createShaderModule(shaderModuleCreateInfo); 
-    delete[] buffer;
-
-    return shader;
+    return device_.createShaderModule(shaderModuleCI);
 }

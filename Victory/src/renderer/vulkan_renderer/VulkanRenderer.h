@@ -6,6 +6,8 @@ class GLFWwindow;
 
 class VulkanContext;
 class VulkanSwapchain;
+class VulkanPipeline;
+class VulkanFrameBuffers;
 
 class VulkanRenderer : public Renderer {
 public:
@@ -27,5 +29,7 @@ private:
     GLFWwindow* m_Window;
 
     VulkanContext* m_VulkanContext;
-    VulkanSwapchain* m_VulkanSwapcahin;
+    VulkanSwapchain* m_VulkanSwapchain;
+    VulkanPipeline* m_VulkanPipeline;
+    VulkanFrameBuffers* m_VulkanFrameBuffers;
 };
