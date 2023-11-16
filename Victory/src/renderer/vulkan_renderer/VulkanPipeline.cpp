@@ -7,8 +7,8 @@
 bool VulkanPipeline::CreatePipeline(VulkanContext* context_) {
     vk::Device device = context_->GetDevice();
 
-    std::vector<char> vsBuffer = Utils::ReadFile("../../Victory/shaders/triangle.vert.spv");
-    std::vector<char> fsBuffer = Utils::ReadFile("../../Victory/shaders/triangle.frag.spv");
+    std::vector<char> vsBuffer = Utils::ReadFile("triangle.vert.spv");
+    std::vector<char> fsBuffer = Utils::ReadFile("triangle.frag.spv");
     VS = LoadShader(device, vsBuffer);
     FS = LoadShader(device, fsBuffer);
 

@@ -8,7 +8,11 @@ file(GLOB_RECURSE GLSL_SOURCE_FILES
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
-    set(SPIRV ${CMAKE_SOURCE_DIR}/Victory/shaders/${FILE_NAME}.spv)
+if(WIN32)
+    set(SPIRV ${CMAKE_BINARY_DIR}/Sandbox/config/${FILE_NAME}.spv)
+else()
+    set(SPIRV ${CMAKE_BINARY_DIR}/Sandbox/${FILE_NAME}.spv)
+endif()
     add_custom_command(
         OUTPUT ${SPIRV}
         COMMAND glslc ${GLSL} -o ${SPIRV}
@@ -40,6 +44,12 @@ add_dependencies(Victory Shaders)
 
 target_link_libraries(Victory PRIVATE Vulkan::Vulkan glfw imgui)
 
-target_compile_options(Victory PRIVATE
-  -Wall -Wextra -Wpedantic #-Werror 
+set_target_properties(Victory PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
 )
+
+if(UNIX)
+target_compile_options(Victory PRIVATE
+    -Wall -Wextra -Wpedantic #-Werror 
+)
+endif()

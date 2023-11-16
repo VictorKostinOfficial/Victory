@@ -4,7 +4,7 @@
 
 #include "vulkan/vulkan.hpp"
 
-class GLFWwindow;
+struct GLFWwindow;
 
 class VulkanContext;
 class VulkanSwapchain;

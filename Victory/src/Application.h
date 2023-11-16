@@ -24,8 +24,6 @@ struct ApplicationSpecification {
 	ApplicationCommandLineArgs CommandLineArgs;
 };
 
-class GLFWwindow;
-
 class Application
 {
 public:

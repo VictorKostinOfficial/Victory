@@ -9,7 +9,7 @@ static std::vector<char> ReadFile(std::string&& path_) {
     FILE* file = fopen(path_.c_str(), "rb");
 
     if (!file) {
-        printf("\nFile nor readed: %s", path_.c_str());
+        printf("\nFile not readed: %s", path_.c_str());
         return {};
     }
 
