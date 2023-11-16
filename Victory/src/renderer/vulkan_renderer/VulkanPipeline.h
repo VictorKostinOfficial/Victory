@@ -10,7 +10,7 @@ public:
 
     bool CreateRenderPass(vk::Device device_, vk::Format format_);
     bool CreatePipelineLayout(vk::Device device_);
-    bool CreatePipeline(VulkanContext* context_, VulkanSwapchain* swapchain_);
+    bool CreatePipeline(VulkanContext* context_);
     void Cleanup(VulkanContext* context_);
 
     const vk::RenderPass GetRenderPass() const;

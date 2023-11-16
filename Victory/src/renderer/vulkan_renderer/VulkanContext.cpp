@@ -87,7 +87,7 @@ bool VulkanContext::CreateLogicalDevice() {
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCIs;
     deviceQueueCIs.reserve(queueIndecies.size());
     std::vector<float> queuePriorities{ 1.f, 0.9f };
-    for (size_t i{0}, n = queueIndecies.size(); i < n; ++i) {
+    for (uint32_t i{0}, n = static_cast<uint32_t>(queueIndecies.size()); i < n; ++i) {
         vk::DeviceQueueCreateInfo&& deviceQueueCI = vk::DeviceQueueCreateInfo({}, 
             i, 
             1, 
@@ -155,6 +155,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData) {
+    (void)messageSeverity;
+    (void)messageType;
+    (void)pUserData;
     printf("\nValidation layer: %s", pCallbackData->pMessage);
     return VK_FALSE;
 }
@@ -238,7 +241,7 @@ bool VulkanContext::PickQueueIndecies(vk::PhysicalDevice phDevice_, vk::SurfaceK
         phDevice_.getQueueFamilyProperties();
     
     uint8_t min_score{UINT8_MAX};
-    for(size_t i{0}, n = queueFamilyProperties.size(); i < n; ++i) {
+    for(uint32_t i{0}, n = static_cast<uint32_t>(queueFamilyProperties.size()); i < n; ++i) {
         uint8_t score{0};
 
         // Graphics queue

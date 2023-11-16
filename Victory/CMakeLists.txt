@@ -38,4 +38,8 @@ add_library(Victory ${sources})
 
 add_dependencies(Victory Shaders)
 
-target_link_libraries(Victory PRIVATE glfw imgui)
+target_link_libraries(Victory PRIVATE Vulkan::Vulkan glfw imgui)
+
+target_compile_options(Victory PRIVATE
+  -Wall -Wextra -Wpedantic #-Werror 
+)

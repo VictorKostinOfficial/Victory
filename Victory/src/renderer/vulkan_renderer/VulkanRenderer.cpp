@@ -153,7 +153,7 @@ bool VulkanRenderer::Initialize(const char* applicationName_) {
         return false;
     }
 
-    if (!m_VulkanPipeline->CreatePipeline(m_VulkanContext, m_VulkanSwapchain)) {
+    if (!m_VulkanPipeline->CreatePipeline(m_VulkanContext)) {
         return false;
     }
 

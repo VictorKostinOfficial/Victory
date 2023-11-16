@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-class GLFWwindow;
+struct GLFWwindow;
 class VulkanContext;
 
 class VulkanSwapchain {
@@ -16,7 +16,7 @@ public:
 
     const vk::SurfaceKHR GetSurface() const;
     const vk::SwapchainKHR GetSwapchain() const;
-    const vk::Format GetSwapchainFormat() const;
+    vk::Format GetSwapchainFormat() const;
     const vk::Extent2D GetExtent() const ;
     const std::vector<vk::ImageView>& GetImageViews() const;
 

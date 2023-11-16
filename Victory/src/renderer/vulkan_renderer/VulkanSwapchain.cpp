@@ -116,7 +116,7 @@ const vk::SwapchainKHR VulkanSwapchain::GetSwapchain() const {
     return m_Swapchain;
 }
 
-const vk::Format VulkanSwapchain::GetSwapchainFormat() const{
+vk::Format VulkanSwapchain::GetSwapchainFormat() const{
     return m_SurfaceFormat.format;
 }
 

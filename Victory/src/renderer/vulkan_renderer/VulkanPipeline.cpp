@@ -4,7 +4,7 @@
 
 #include "../../Utils.h"
 
-bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* swapchain_) {
+bool VulkanPipeline::CreatePipeline(VulkanContext* context_) {
     vk::Device device = context_->GetDevice();
 
     std::vector<char> vsBuffer = Utils::ReadFile("../../Victory/shaders/triangle.vert.spv");

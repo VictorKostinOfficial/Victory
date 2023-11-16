@@ -18,7 +18,7 @@ static std::vector<char> ReadFile(std::string&& path_) {
     fseek(file, 0, SEEK_SET);
 
     std::vector<char> buffer(length);
-    size_t rc = fread(buffer.data(), 1, length, file);
+    fread(buffer.data(), 1, length, file);
     fclose(file);
 
     return buffer;
