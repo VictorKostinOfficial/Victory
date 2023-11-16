@@ -74,23 +74,24 @@ bool VulkanContext::CreateLogicalDevice() {
     if (m_GraphicsQueueIndex != m_PresentQueueIndex) {
         queueIndecies.emplace_back(m_PresentQueueIndex);
     }
-    if (m_GraphicsQueueIndex != m_ComputeQueueIndex) {
-        queueIndecies.emplace_back(m_ComputeQueueIndex);
-    }
-    if (m_GraphicsQueueIndex != m_TransferQueueIndex) {
-        queueIndecies.emplace_back(m_TransferQueueIndex);
-    }
+    // i don't need it right now
+    // if (m_GraphicsQueueIndex != m_ComputeQueueIndex) {
+    //     queueIndecies.emplace_back(m_ComputeQueueIndex);
+    // }
+    // if (m_GraphicsQueueIndex != m_TransferQueueIndex) {
+    //     queueIndecies.emplace_back(m_TransferQueueIndex);
+    // }
 
     // TODO: if presentation and graphics is one queue index
     //       create 2 queue with queue priorities 0.9 and 1
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCIs;
     deviceQueueCIs.reserve(queueIndecies.size());
     std::vector<float> queuePriorities{ 1.f, 0.9f };
-    for (size_t i{0}; float queueIndex : queueIndecies) {
+    for (size_t i{0}, n = queueIndecies.size(); i < n; ++i) {
         vk::DeviceQueueCreateInfo&& deviceQueueCI = vk::DeviceQueueCreateInfo({}, 
-            queueIndex, 
+            i, 
             1, 
-            queueIndex == 0 ? &queuePriorities[0] : &queuePriorities[1]
+            i == 0 ? &queuePriorities[0] : &queuePriorities[1]
         );
         deviceQueueCIs.emplace_back(deviceQueueCI);
     }
@@ -106,6 +107,9 @@ bool VulkanContext::CreateLogicalDevice() {
     };
 
     m_Device = m_PhysicalDevice.createDevice(deviceCI);
+
+    m_GraphicsQueue = m_Device.getQueue(m_GraphicsQueueIndex, 0);
+    m_PresentQueue = m_Device.getQueue(m_PresentQueueIndex, 0);
     return true;
 }
 
@@ -234,11 +238,11 @@ bool VulkanContext::PickQueueIndecies(vk::PhysicalDevice phDevice_, vk::SurfaceK
         phDevice_.getQueueFamilyProperties();
     
     uint8_t min_score{UINT8_MAX};
-    for(uint32_t i{0}; auto&& property : queueFamilyProperties) {
+    for(size_t i{0}, n = queueFamilyProperties.size(); i < n; ++i) {
         uint8_t score{0};
 
         // Graphics queue
-        if (m_GraphicsQueueIndex == UINT32_MAX && property.queueFlags & vk::QueueFlagBits::eGraphics) {
+        if (m_GraphicsQueueIndex == UINT32_MAX && queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics) {
             m_GraphicsQueueIndex = i;
             ++score;
         }
@@ -250,22 +254,25 @@ bool VulkanContext::PickQueueIndecies(vk::PhysicalDevice phDevice_, vk::SurfaceK
         }
 
         // Compute queue
-        if (property.queueFlags & vk::QueueFlagBits::eCompute) {
+        if (queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eCompute) {
             m_ComputeQueueIndex = i;
             ++score;
         }
 
         // Transfer queue
-        if (min_score > score && property.queueFlags & vk::QueueFlagBits::eTransfer) {
+        if (min_score > score && queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eTransfer) {
             min_score = score;
             m_TransferQueueIndex = i;
         }
     }
 
-    printf("\nGraphics Queue Index: %u", m_GraphicsQueueIndex);
-    printf("\nPresent Queue Index: %u", m_PresentQueueIndex);
-    printf("\nCompute Queue Index: %u", m_ComputeQueueIndex);
-    printf("\nTransfer Queue Index: %u", m_TransferQueueIndex);
-
     return !(m_GraphicsQueueIndex == UINT32_MAX);
+}
+
+vk::Queue VulkanContext::GetGraphicsQueue() {
+    return m_GraphicsQueue;
+}
+
+vk::Queue VulkanContext::GetPresentQueue() {
+    return m_PresentQueue;
 }

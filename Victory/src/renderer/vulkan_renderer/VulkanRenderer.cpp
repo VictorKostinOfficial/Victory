@@ -51,7 +51,7 @@ void VulkanRenderer::BeginFrame() {
 
     uint32_t imageIndex = device.acquireNextImageKHR(m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphore).value;
 
-    vk::CommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(imageIndex);
+    vk::CommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer();
     commandBuffer.reset();
 
     m_VulkanFrameBuffer->RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, imageIndex);
@@ -81,7 +81,6 @@ void VulkanRenderer::BeginFrame() {
     if (presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess) {
         throw std::runtime_error("Not presented");
     }
-
 }
 
 void VulkanRenderer::EndFrame() {

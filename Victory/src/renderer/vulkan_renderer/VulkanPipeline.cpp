@@ -42,30 +42,15 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
     inputAssemblyStateCI.setTopology(vk::PrimitiveTopology::eTriangleList);
     inputAssemblyStateCI.setPrimitiveRestartEnable(VK_FALSE);
 
+    vk::PipelineTessellationStateCreateInfo tessellationStateCI{};
+
     // Viewport the transformation from the image to the framebuffer
     // Scissor which regions pixels will actually be stored
     // https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
 
-    // vk::Extent2D extent = swapchain_->GetExtent();
-    // vk::Viewport viewport{};
-    // viewport.setX(0.f);
-    // viewport.setY(0.f);
-    // viewport.setWidth(static_cast<float>(extent.width));
-    // viewport.setWidth(static_cast<float>(extent.height));
-    // viewport.setMinDepth(0.f);
-    // viewport.setMaxDepth(1.f);
-
-    // vk::Rect2D scissor{};
-    // scissor.setOffset({0,0});
-    // scissor.setExtent(extent);
-
-    // Dynamic state
     vk::PipelineViewportStateCreateInfo viewportStateCI{};
     viewportStateCI.setViewportCount(1);
     viewportStateCI.setScissorCount(1);
-    // Static state
-    // viewportStateCI.setViewports(viewport);
-    // viewportStateCI.setScissors(scissor);
 
     vk::PipelineRasterizationStateCreateInfo rasterizationStateCI{};
     rasterizationStateCI.setDepthClampEnable(VK_FALSE);
@@ -95,12 +80,12 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
                                                 vk::ColorComponentFlagBits::eB | 
                                                 vk::ColorComponentFlagBits::eA);
     colorBlendAttachmentState.setBlendEnable(VK_FALSE);
-    // colorBlendAttachmentState.setSrcColorBlendFactor(vk::BlendFactor::eOne);
-    // colorBlendAttachmentState.setDstColorBlendFactor(vk::BlendFactor::eZero);
-    // colorBlendAttachmentState.setColorBlendOp(vk::BlendOp::eAdd);
-    // colorBlendAttachmentState.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
-    // colorBlendAttachmentState.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
-    // colorBlendAttachmentState.setAlphaBlendOp(vk::BlendOp::eAdd);
+    colorBlendAttachmentState.setSrcColorBlendFactor(vk::BlendFactor::eOne);
+    colorBlendAttachmentState.setDstColorBlendFactor(vk::BlendFactor::eZero);
+    colorBlendAttachmentState.setColorBlendOp(vk::BlendOp::eAdd);
+    colorBlendAttachmentState.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
+    colorBlendAttachmentState.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
+    colorBlendAttachmentState.setAlphaBlendOp(vk::BlendOp::eAdd);
 
     vk::PipelineColorBlendStateCreateInfo colorBlendStateCI{};
     colorBlendStateCI.setLogicOpEnable(VK_FALSE);
@@ -112,6 +97,7 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_, VulkanSwapchain* sw
     pipelineCI.setStages(shaderStageCIs);
     pipelineCI.setPVertexInputState(&vertexInputStateCI);
     pipelineCI.setPInputAssemblyState(&inputAssemblyStateCI);
+    pipelineCI.setPTessellationState(&tessellationStateCI);
     pipelineCI.setPViewportState(&viewportStateCI);
     pipelineCI.setPRasterizationState(&rasterizationStateCI);
     pipelineCI.setPMultisampleState(&MultisampleStateCI);

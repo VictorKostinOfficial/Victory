@@ -37,13 +37,13 @@ bool VulkanFrameBuffer::CreateCommandBuffer(VulkanContext* contex_) {
     commandBufferAllocInfo.setCommandBufferCount(1);
 
     vk::Device device = contex_->GetDevice();
-    m_CommandBuffers = device.allocateCommandBuffers(commandBufferAllocInfo);
+    m_CommandBuffer = device.allocateCommandBuffers(commandBufferAllocInfo).front();
     return true;
 }
 
 void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_, uint32_t imageIndex_) {
     vk::CommandBufferBeginInfo commandBufferBI{};
-    m_CommandBuffers[imageIndex_].begin(commandBufferBI);
+    m_CommandBuffer.begin(commandBufferBI);
 
     vk::Rect2D rect{};
     rect.setOffset({0,0});
@@ -60,9 +60,9 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanP
     renderPassBI.setClearValues(clearValue);
 
     // TODO: split function begin/end
-    m_CommandBuffers[imageIndex_].beginRenderPass(renderPassBI, vk::SubpassContents::eInline);
+    m_CommandBuffer.beginRenderPass(renderPassBI, vk::SubpassContents::eInline);
 
-        m_CommandBuffers[imageIndex_].bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_->GetPipeline());
+        m_CommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_->GetPipeline());
 
         vk::Viewport viewport{};
         viewport.setX(0.f);
@@ -72,14 +72,14 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanP
         viewport.setMinDepth(0.f);
         viewport.setMaxDepth(1.f);
 
-        m_CommandBuffers[imageIndex_].setViewport(0, viewport);
-        m_CommandBuffers[imageIndex_].setScissor(0, rect);
+        m_CommandBuffer.setViewport(0, viewport);
+        m_CommandBuffer.setScissor(0, rect);
 
-        m_CommandBuffers[imageIndex_].draw(3, 1, 0, 0);
+        m_CommandBuffer.draw(3, 1, 0, 0);
 
-    m_CommandBuffers[imageIndex_].endRenderPass();
+    m_CommandBuffer.endRenderPass();
 
-    m_CommandBuffers[imageIndex_].end();
+    m_CommandBuffer.end();
 }
 
 void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
@@ -91,6 +91,6 @@ void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
     }
 }
 
-const vk::CommandBuffer VulkanFrameBuffer::GetCommandBuffer(uint32_t imageIndex_) const {
-    return m_CommandBuffers[imageIndex_];
+const vk::CommandBuffer VulkanFrameBuffer::GetCommandBuffer() const {
+    return m_CommandBuffer;
 }
