@@ -40,7 +40,10 @@ private:
     VulkanPipeline* m_VulkanPipeline;
     VulkanFrameBuffer* m_VulkanFrameBuffer;
 
-    vk::Semaphore m_AvailableSemaphore{VK_NULL_HANDLE};
-    vk::Semaphore m_FinishedSemaphore{VK_NULL_HANDLE};
-    vk::Fence m_InFlightFence{VK_NULL_HANDLE};
+    uint32_t m_CurrentFrame{0};
+    const uint32_t MAX_FRAMES_IN_FLIGHT{2};
+
+    std::vector<vk::Semaphore> m_AvailableSemaphores;
+    std::vector<vk::Semaphore> m_FinishedSemaphores;
+    std::vector<vk::Fence> m_InFlightFences;
 };

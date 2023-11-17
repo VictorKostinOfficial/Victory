@@ -44,20 +44,20 @@ void VulkanRenderer::BeginFrame() {
     printf("\nVulkanRenderer::BeginFrame");
 
     vk::Device device = m_VulkanContext->GetDevice();
-    if (device.waitForFences(m_InFlightFence, VK_TRUE, UINT64_MAX) != vk::Result::eSuccess) {
+    if (device.waitForFences(m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) != vk::Result::eSuccess) {
         throw std::runtime_error("Wait for fences = false");
     }
-    device.resetFences(m_InFlightFence);
+    device.resetFences(m_InFlightFences[m_CurrentFrame]);
 
-    uint32_t imageIndex = device.acquireNextImageKHR(m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphore).value;
+    uint32_t imageIndex = device.acquireNextImageKHR(m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame]).value;
 
-    vk::CommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer();
+    vk::CommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     commandBuffer.reset();
 
-    m_VulkanFrameBuffer->RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, imageIndex);
+    m_VulkanFrameBuffer->RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, m_CurrentFrame, imageIndex);
 
-    std::vector<vk::Semaphore> waitSemaphores{m_AvailableSemaphore};
-    std::vector<vk::Semaphore> signalSemaphores{m_FinishedSemaphore};
+    std::vector<vk::Semaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
+    std::vector<vk::Semaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
     std::vector<vk::PipelineStageFlags> waitStages{vk::PipelineStageFlagBits::eColorAttachmentOutput};
 
     vk::SubmitInfo submitInfo{};
@@ -67,7 +67,7 @@ void VulkanRenderer::BeginFrame() {
     submitInfo.setSignalSemaphores(signalSemaphores);
 
     vk::Queue graphicsQueue = device.getQueue(m_VulkanContext->GetQueueIndex(0), 0);
-    graphicsQueue.submit(submitInfo, m_InFlightFence);
+    graphicsQueue.submit(submitInfo, m_InFlightFences[m_CurrentFrame]);
 
     vk::SwapchainKHR swaps = m_VulkanSwapchain->GetSwapchain();
     std::vector<vk::SwapchainKHR> swapchains = {swaps};
@@ -81,6 +81,8 @@ void VulkanRenderer::BeginFrame() {
     if (presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess) {
         throw std::runtime_error("Not presented");
     }
+
+    m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void VulkanRenderer::EndFrame() {
@@ -89,9 +91,12 @@ void VulkanRenderer::EndFrame() {
 }
 
 void VulkanRenderer::Destroy() {
-    m_VulkanContext->GetDevice().destroySemaphore(m_AvailableSemaphore);
-    m_VulkanContext->GetDevice().destroySemaphore(m_FinishedSemaphore);
-    m_VulkanContext->GetDevice().destroyFence(m_InFlightFence);
+    for (int i = static_cast<int>(MAX_FRAMES_IN_FLIGHT) - 1; i >= 0; --i) {
+        m_VulkanContext->GetDevice().destroySemaphore(m_AvailableSemaphores[i]);
+        m_VulkanContext->GetDevice().destroySemaphore(m_FinishedSemaphores[i]);
+        m_VulkanContext->GetDevice().destroyFence(m_InFlightFences[i]);
+    }
+
     m_VulkanFrameBuffer->Cleanup(m_VulkanContext);
     m_VulkanPipeline->Cleanup(m_VulkanContext);
     m_VulkanSwapchain->Cleanup(m_VulkanContext);
@@ -171,13 +176,17 @@ bool VulkanRenderer::Initialize(const char* applicationName_) {
 
     // command buffer used to record commands 
     // that are submitted to the GPU for execution
-    if (!m_VulkanFrameBuffer->CreateCommandBuffer(m_VulkanContext)) {
+    if (!m_VulkanFrameBuffer->CreateCommandBuffer(m_VulkanContext, MAX_FRAMES_IN_FLIGHT)) {
         return false;
     }
 
-    m_AvailableSemaphore = CreateSemaphore(m_VulkanContext->GetDevice());
-    m_FinishedSemaphore = CreateSemaphore(m_VulkanContext->GetDevice());
-    m_InFlightFence = CreateFence(m_VulkanContext->GetDevice());
+    m_AvailableSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
+    m_FinishedSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
+    m_InFlightFences.reserve(MAX_FRAMES_IN_FLIGHT);
+
+    m_AvailableSemaphores = {CreateSemaphore(m_VulkanContext->GetDevice()), CreateSemaphore(m_VulkanContext->GetDevice())};
+    m_FinishedSemaphores = {CreateSemaphore(m_VulkanContext->GetDevice()), CreateSemaphore(m_VulkanContext->GetDevice())};
+    m_InFlightFences = {CreateFence(m_VulkanContext->GetDevice()), CreateFence(m_VulkanContext->GetDevice())};
 
     return true;
 }

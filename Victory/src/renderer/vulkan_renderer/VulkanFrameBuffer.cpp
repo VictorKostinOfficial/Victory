@@ -30,20 +30,21 @@ bool VulkanFrameBuffer::CreateCommandPool(VulkanContext* context_) {
     return true;
 }
 
-bool VulkanFrameBuffer::CreateCommandBuffer(VulkanContext* contex_) {
+bool VulkanFrameBuffer::CreateCommandBuffer(VulkanContext* contex_, uint32_t commandBufferCount_) {
     vk::CommandBufferAllocateInfo commandBufferAllocInfo{};
     commandBufferAllocInfo.setCommandPool(m_CommandPool);
     commandBufferAllocInfo.setLevel(vk::CommandBufferLevel::ePrimary);
-    commandBufferAllocInfo.setCommandBufferCount(1);
+    commandBufferAllocInfo.setCommandBufferCount(commandBufferCount_);
 
     vk::Device device = contex_->GetDevice();
-    m_CommandBuffer = device.allocateCommandBuffers(commandBufferAllocInfo).front();
+    m_CommandBuffers = device.allocateCommandBuffers(commandBufferAllocInfo);
     return true;
 }
 
-void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_, uint32_t imageIndex_) {
+void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_) {
     vk::CommandBufferBeginInfo commandBufferBI{};
-    m_CommandBuffer.begin(commandBufferBI);
+    vk::CommandBuffer commandBuffer = m_CommandBuffers[commandBufferIndex_];
+    commandBuffer.begin(commandBufferBI);
 
     vk::Rect2D rect{};
     rect.setOffset({0,0});
@@ -60,9 +61,9 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanP
     renderPassBI.setClearValues(clearValue);
 
     // TODO: split function begin/end
-    m_CommandBuffer.beginRenderPass(renderPassBI, vk::SubpassContents::eInline);
-
-        m_CommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_->GetPipeline());
+    commandBuffer.beginRenderPass(renderPassBI, vk::SubpassContents::eInline);
+    {
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_->GetPipeline());
 
         vk::Viewport viewport{};
         viewport.setX(0.f);
@@ -72,14 +73,15 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanP
         viewport.setMinDepth(0.f);
         viewport.setMaxDepth(1.f);
 
-        m_CommandBuffer.setViewport(0, viewport);
-        m_CommandBuffer.setScissor(0, rect);
+        commandBuffer.setViewport(0, viewport);
+        commandBuffer.setScissor(0, rect);
 
-        m_CommandBuffer.draw(3, 1, 0, 0);
+        commandBuffer.draw(3, 1, 0, 0);
 
-    m_CommandBuffer.endRenderPass();
+        commandBuffer.endRenderPass();
 
-    m_CommandBuffer.end();
+    }
+    commandBuffer.end();
 }
 
 void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
@@ -91,6 +93,6 @@ void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
     }
 }
 
-const vk::CommandBuffer VulkanFrameBuffer::GetCommandBuffer() const {
-    return m_CommandBuffer;
+const vk::CommandBuffer VulkanFrameBuffer::GetCommandBuffer(uint32_t index_) const {
+    return m_CommandBuffers[index_];
 }

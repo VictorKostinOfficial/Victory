@@ -50,6 +50,6 @@ set_target_properties(Victory PROPERTIES
 
 if(UNIX)
 target_compile_options(Victory PRIVATE
-    -Wall -Wextra -Wpedantic #-Werror 
+    -Wall -Wextra -Wpedantic -Werror 
 )
 endif()
