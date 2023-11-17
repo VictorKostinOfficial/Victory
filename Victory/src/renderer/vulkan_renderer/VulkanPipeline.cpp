@@ -48,9 +48,23 @@ bool VulkanPipeline::CreatePipeline(VulkanContext* context_) {
     // Scissor which regions pixels will actually be stored
     // https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
 
+    // vk::Viewport viewport{};
+    // viewport.x = 0.0f;
+    // viewport.y = 0.0f;
+    // viewport.width = 1080.f;
+    // viewport.height = 720.f;
+    // viewport.minDepth = 0.0f;
+    // viewport.maxDepth = 1.0f;
+
+    // vk::Rect2D scissor{};
+    // scissor.setOffset({0,0});
+    // scissor.setExtent({1080,720});
+
     vk::PipelineViewportStateCreateInfo viewportStateCI{};
     viewportStateCI.setViewportCount(1);
     viewportStateCI.setScissorCount(1);
+    // viewportStateCI.setPViewports(&viewport);
+    // viewportStateCI.setPScissors(&scissor);
 
     vk::PipelineRasterizationStateCreateInfo rasterizationStateCI{};
     rasterizationStateCI.setDepthClampEnable(VK_FALSE);

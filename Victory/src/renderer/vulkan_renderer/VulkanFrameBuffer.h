@@ -14,6 +14,7 @@ public:
     bool CreateCommandPool(VulkanContext* context_);
     bool CreateCommandBuffer(VulkanContext* contex_, uint32_t commandBufferCount_);
     void RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_, uint32_t commandBufferIndex, uint32_t imageIndex_);
+    void CleanupFrameBuffers(VulkanContext* context_);
     void Cleanup(VulkanContext* context_);
 
     const vk::CommandBuffer GetCommandBuffer(uint32_t commandBufferIndex) const;

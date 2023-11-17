@@ -84,13 +84,20 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanP
     commandBuffer.end();
 }
 
-void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
+void VulkanFrameBuffer::CleanupFrameBuffers(VulkanContext* context_) {
     vk::Device device = context_->GetDevice();
 
-    device.destroyCommandPool(m_CommandPool);
     for (auto&& frameBuffer : m_FrameBuffers) {
         device.destroyFramebuffer(frameBuffer);
     }
+}
+
+void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
+    vk::Device device = context_->GetDevice();
+
+    // TODO: need refactor
+    device.destroyCommandPool(m_CommandPool);
+    CleanupFrameBuffers(context_);
 }
 
 const vk::CommandBuffer VulkanFrameBuffer::GetCommandBuffer(uint32_t index_) const {

@@ -4,6 +4,8 @@
 
 struct GLFWwindow;
 class VulkanContext;
+class VulkanFrameBuffer;
+class VulkanPipeline;
 
 class VulkanSwapchain {
 public:
@@ -11,7 +13,9 @@ public:
     // Mb store context inside the class
     bool CreateSurface(VulkanContext* context_, GLFWwindow* window_);
     bool CreateSwapchain(VulkanContext* context_, GLFWwindow* window_);
+    bool RecreateSwapchain(VulkanContext* context_, GLFWwindow* window_, VulkanFrameBuffer* buffer_, VulkanPipeline* pipeline_);
     bool CreateImageViews(VulkanContext* context_);
+    void CleanupSwapchain(VulkanContext* context_, VulkanFrameBuffer* buffer_);
     void Cleanup(VulkanContext* context_);
 
     const vk::SurfaceKHR GetSurface() const;

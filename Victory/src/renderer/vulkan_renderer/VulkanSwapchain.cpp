@@ -1,5 +1,7 @@
 #include "VulkanSwapchain.h"
 #include "VulkanContext.h"
+#include "VulkanFrameBuffer.h"
+#include "VulkanPipeline.h"
 
 #include <GLFW/glfw3.h>
 
@@ -75,6 +77,24 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext *context_, GLFWwindow *windo
     return true;
 }
 
+bool VulkanSwapchain::RecreateSwapchain(VulkanContext* context_, GLFWwindow* window_, VulkanFrameBuffer* buffer_, VulkanPipeline* pipeline_) {
+    // vk::Device device = context_->GetDevice();
+    // device.waitIdle();
+
+    CleanupSwapchain(context_, buffer_);
+
+    if (!CreateSwapchain(context_, window_)) {
+        return false;
+    }
+    if (!CreateImageViews(context_)) {
+        return false;
+    }
+    if (!buffer_->CreateFrameBuffer(context_, this, pipeline_)) {
+        return false;
+    }
+    return true;
+}
+
 bool VulkanSwapchain::CreateImageViews(VulkanContext *context_) {
     vk::Device device = context_->GetDevice();
     vk::ImageViewCreateInfo imageViewCI{};
@@ -96,6 +116,18 @@ bool VulkanSwapchain::CreateImageViews(VulkanContext *context_) {
         m_ImageViews.emplace_back(imageView);
     }
     return true;
+}
+
+void VulkanSwapchain::CleanupSwapchain(VulkanContext* context_, VulkanFrameBuffer* buffer_) {
+    vk::Device device = context_->GetDevice();
+
+    buffer_->CleanupFrameBuffers(context_);
+
+    for (auto&& imageView : m_ImageViews) {
+        device.destroyImageView(imageView);
+    }
+
+    device.destroySwapchainKHR(m_Swapchain);
 }
 
 void VulkanSwapchain::Cleanup(VulkanContext *context_) {

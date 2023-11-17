@@ -47,9 +47,17 @@ void VulkanRenderer::BeginFrame() {
     if (device.waitForFences(m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) != vk::Result::eSuccess) {
         throw std::runtime_error("Wait for fences = false");
     }
-    device.resetFences(m_InFlightFences[m_CurrentFrame]);
 
-    uint32_t imageIndex = device.acquireNextImageKHR(m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame]).value;
+    vk::ResultValue<uint32_t> imageResult = device.acquireNextImageKHR(m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame]);
+    if (imageResult.result == vk::Result::eErrorOutOfDateKHR) {
+        m_VulkanSwapchain->RecreateSwapchain(m_VulkanContext, m_Window, m_VulkanFrameBuffer, m_VulkanPipeline);
+        return;
+    } else if (imageResult.result != vk::Result::eSuccess && imageResult.result != vk::Result::eSuboptimalKHR) {
+        throw std::runtime_error("Failde to acquire swap chain image!");
+    }
+    uint32_t imageIndex = imageResult.value;
+
+    device.resetFences(m_InFlightFences[m_CurrentFrame]);
 
     vk::CommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     commandBuffer.reset();
@@ -78,8 +86,11 @@ void VulkanRenderer::BeginFrame() {
     presentInfo.setImageIndices(imageIndex);
 
     vk::Queue presentQueue = device.getQueue(m_VulkanContext->GetQueueIndex(1), 0);
-    if (presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess) {
-        throw std::runtime_error("Not presented");
+    vk::Result presentResult = presentQueue.presentKHR(presentInfo);
+    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
+        m_VulkanSwapchain->RecreateSwapchain(m_VulkanContext, m_Window, m_VulkanFrameBuffer, m_VulkanPipeline);
+    } else if (presentResult != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to present swap chain image!");
     }
 
     m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
