@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
-vk::Semaphore CreateSemaphore(vk::Device device_);
-vk::Fence CreateFence(vk::Device device_);
+bool CreateSemaphore(VkDevice device_, VkSemaphore* semaphore_);
+bool CreateFence(VkDevice device_, VkFence* fence_);

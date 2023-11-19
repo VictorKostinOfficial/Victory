@@ -1,27 +1,29 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
-class VulkanContext;
-class VulkanSwapchain;
-class VulkanPipeline;
+#include "VulkanContext.h"
+#include "VulkanSwapchain.h"
+#include "VulkanPipeline.h"
 
-class VulkanFrameBuffer
-{
+class VulkanFrameBuffer {
 public:
 
-    bool CreateFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_);
-    bool CreateCommandPool(VulkanContext* context_);
-    bool CreateCommandBuffer(VulkanContext* contex_, uint32_t commandBufferCount_);
-    void RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_, uint32_t commandBufferIndex, uint32_t imageIndex_);
-    void CleanupFrameBuffers(VulkanContext* context_);
-    void Cleanup(VulkanContext* context_);
+    bool CreateFrameBuffers(VulkanContext& context_, VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_);
+    bool CreateCommandPool(VulkanContext& context_);
+    bool CreateCommandBuffer(VkDevice device_, uint32_t commandBufferCount_);
 
-    const vk::CommandBuffer GetCommandBuffer(uint32_t commandBufferIndex) const;
+    void RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_);
+
+    void CleanupCommandPool(VkDevice device_);
+    void CleanupFrameBuffers(VkDevice device_);
+    void CleanupAll(VulkanContext& context_);
+
+    VkCommandBuffer GetCommandBuffer(uint32_t commandBufferIndex) const;
 
 private:
 
-    std::vector<vk::Framebuffer> m_FrameBuffers;
-    vk::CommandPool m_CommandPool{VK_NULL_HANDLE};
-    std::vector<vk::CommandBuffer> m_CommandBuffers;
+    std::vector<VkFramebuffer> m_FrameBuffers;
+    VkCommandPool m_CommandPool{VK_NULL_HANDLE};
+    std::vector<VkCommandBuffer> m_CommandBuffers;
 };

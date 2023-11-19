@@ -5,6 +5,8 @@
 
 #include "Layer.h"
 
+class Renderer;
+
 namespace Victory {
 
 struct ApplicationCommandLineArgs {
@@ -49,6 +51,7 @@ public:
 private:
 
     static Application* s_Instance;
+    static Renderer* s_Renderer;
     ApplicationSpecification m_ApplicationSpec;
 
     std::vector<std::shared_ptr<Layer>> m_LayerStack;

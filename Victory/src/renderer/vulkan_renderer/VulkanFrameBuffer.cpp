@@ -1,105 +1,113 @@
 #include "VulkanFrameBuffer.h"
-#include "VulkanContext.h"
-#include "VulkanSwapchain.h"
-#include "VulkanPipeline.h"
 
-bool VulkanFrameBuffer::CreateFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_) {
-    vk::FramebufferCreateInfo frameBufferCI{};
-    frameBufferCI.setRenderPass(pipeline_->GetRenderPass());
-    frameBufferCI.setWidth(swapchain_->GetExtent().width);
-    frameBufferCI.setHeight(swapchain_->GetExtent().height);
-    frameBufferCI.setLayers(1);
+bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_, VulkanSwapchain &swapchain_, VulkanPipeline &pipeline_) {
+    VkFramebufferCreateInfo frameBufferCI{};
+    frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    frameBufferCI.renderPass = pipeline_.GetRenderPass();
+    frameBufferCI.width = swapchain_.GetExtent().width;
+    frameBufferCI.height = swapchain_.GetExtent().height;
+    frameBufferCI.layers = 1;
 
-    vk::Device device = context_->GetDevice();
-    auto&& imageViews = swapchain_->GetImageViews();
-    for(auto&& imageView : imageViews) {
-        frameBufferCI.setAttachments(imageView);
-        m_FrameBuffers.emplace_back(device.createFramebuffer(frameBufferCI));
+    VkDevice device = context_.GetDevice();
+
+    auto&& imageViews = swapchain_.GetImageViews();
+    m_FrameBuffers.resize(imageViews.size());
+    for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
+        frameBufferCI.attachmentCount = 1;
+        frameBufferCI.pAttachments = &imageViews[i];
+
+        if (vkCreateFramebuffer(device, &frameBufferCI, nullptr, &m_FrameBuffers[i]) != VK_SUCCESS) {
+            printf("\nFrame buffer %lu, was not created!", i);
+            return false;
+        }
     }
 
     return true;
 }
 
-bool VulkanFrameBuffer::CreateCommandPool(VulkanContext* context_) {
-    vk::CommandPoolCreateInfo commandPoolCI{};
-    commandPoolCI.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
-    commandPoolCI.setQueueFamilyIndex(context_->GetQueueIndex(0));
+bool VulkanFrameBuffer::CreateCommandPool(VulkanContext &context_) {
+    VkCommandPoolCreateInfo commandPoolCI{};
+    commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolCI.queueFamilyIndex = context_.GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
 
-    vk::Device device = context_->GetDevice();
-    m_CommandPool = device.createCommandPool(commandPoolCI);
-    return true;
+    VkDevice device = context_.GetDevice();
+    return vkCreateCommandPool(device, &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
 }
 
-bool VulkanFrameBuffer::CreateCommandBuffer(VulkanContext* contex_, uint32_t commandBufferCount_) {
-    vk::CommandBufferAllocateInfo commandBufferAllocInfo{};
-    commandBufferAllocInfo.setCommandPool(m_CommandPool);
-    commandBufferAllocInfo.setLevel(vk::CommandBufferLevel::ePrimary);
-    commandBufferAllocInfo.setCommandBufferCount(commandBufferCount_);
+bool VulkanFrameBuffer::CreateCommandBuffer(VkDevice device_, uint32_t commandBufferCount_) {
+    VkCommandBufferAllocateInfo commandBufferAllocInfo{};
+    commandBufferAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocInfo.commandPool = m_CommandPool;
+    commandBufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocInfo.commandBufferCount = commandBufferCount_;
 
-    vk::Device device = contex_->GetDevice();
-    m_CommandBuffers = device.allocateCommandBuffers(commandBufferAllocInfo);
-    return true;
+    m_CommandBuffers.resize(commandBufferCount_);
+    return vkAllocateCommandBuffers(device_, &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
 
-void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain* swapchain_, VulkanPipeline* pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_) {
-    vk::CommandBufferBeginInfo commandBufferBI{};
-    vk::CommandBuffer commandBuffer = m_CommandBuffers[commandBufferIndex_];
-    commandBuffer.begin(commandBufferBI);
+void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_) {
+    VkCommandBufferBeginInfo commandBufferBI{};
+    commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    vk::Rect2D rect{};
-    rect.setOffset({0,0});
-    rect.setExtent(swapchain_->GetExtent());
+    VkCommandBuffer commandBuffer = m_CommandBuffers[commandBufferIndex_];
+    vkBeginCommandBuffer(commandBuffer, &commandBufferBI);
 
-    vk::ClearColorValue clearColorValue{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f};
-    
-    vk::ClearValue clearValue{clearColorValue};
+    VkRect2D rect{};
+    rect.offset = {0, 0};
+    rect.extent = swapchain_.GetExtent();
 
-    vk::RenderPassBeginInfo renderPassBI{};
-    renderPassBI.setRenderPass(pipeline_->GetRenderPass());
-    renderPassBI.setFramebuffer(m_FrameBuffers[imageIndex_]);
-    renderPassBI.setRenderArea(rect);
-    renderPassBI.setClearValues(clearValue);
+    VkClearColorValue clearColorValue{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f};
+    VkClearValue clearValue{clearColorValue};
+
+    VkRenderPassBeginInfo renderPassBI{};
+    renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBI.renderPass = pipeline_.GetRenderPass();
+    renderPassBI.framebuffer = m_FrameBuffers[imageIndex_];
+    renderPassBI.renderArea = rect;
+    renderPassBI.clearValueCount = 1;
+    renderPassBI.pClearValues = &clearValue;
 
     // TODO: split function begin/end
-    commandBuffer.beginRenderPass(renderPassBI, vk::SubpassContents::eInline);
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
     {
-        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_->GetPipeline());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipeline());
 
-        vk::Viewport viewport{};
-        viewport.setX(0.f);
-        viewport.setY(0.f);
-        viewport.setWidth(static_cast<float>(rect.extent.width));
-        viewport.setHeight(static_cast<float>(rect.extent.height));
-        viewport.setMinDepth(0.f);
-        viewport.setMaxDepth(1.f);
+        VkViewport viewport{};
+        viewport.x = 0.f;
+        viewport.y = 0.f;
+        viewport.width = static_cast<float>(rect.extent.width);
+        viewport.height = static_cast<float>(rect.extent.height);
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
 
-        commandBuffer.setViewport(0, viewport);
-        commandBuffer.setScissor(0, rect);
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffer, 0, 1, &rect);
 
-        commandBuffer.draw(3, 1, 0, 0);
-
-        commandBuffer.endRenderPass();
+        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     }
-    commandBuffer.end();
+    vkCmdEndRenderPass(commandBuffer);
+
+    vkEndCommandBuffer(commandBuffer);
 }
 
-void VulkanFrameBuffer::CleanupFrameBuffers(VulkanContext* context_) {
-    vk::Device device = context_->GetDevice();
-
+void VulkanFrameBuffer::CleanupFrameBuffers(VkDevice device_) {
     for (auto&& frameBuffer : m_FrameBuffers) {
-        device.destroyFramebuffer(frameBuffer);
+        vkDestroyFramebuffer(device_, frameBuffer, nullptr);
     }
 }
 
-void VulkanFrameBuffer::Cleanup(VulkanContext* context_) {
-    vk::Device device = context_->GetDevice();
-
-    // TODO: need refactor
-    device.destroyCommandPool(m_CommandPool);
-    CleanupFrameBuffers(context_);
+void VulkanFrameBuffer::CleanupCommandPool(VkDevice device_) {
+    vkDestroyCommandPool(device_, m_CommandPool, nullptr);
 }
 
-const vk::CommandBuffer VulkanFrameBuffer::GetCommandBuffer(uint32_t index_) const {
-    return m_CommandBuffers[index_];
+void VulkanFrameBuffer::CleanupAll(VulkanContext &context_) {
+    VkDevice device = context_.GetDevice();
+    CleanupCommandPool(device);
+    CleanupFrameBuffers(device);
+}
+
+VkCommandBuffer VulkanFrameBuffer::GetCommandBuffer(uint32_t commandBufferIndex) const {
+    return m_CommandBuffers[commandBufferIndex];
 }

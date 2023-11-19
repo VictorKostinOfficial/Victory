@@ -1,12 +1,24 @@
 #include "VulkanSynchronization.h"
 
-vk::Semaphore CreateSemaphore(vk::Device device_) {
-    vk::SemaphoreCreateInfo semaphoreCI{};
-    return device_.createSemaphore(semaphoreCI);
+bool CreateSemaphore(VkDevice device_, VkSemaphore* semaphore_) {
+    if (!semaphore_) {
+        return false;
+    }
+
+    VkSemaphoreCreateInfo semaphoreCI{};
+    semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    return vkCreateSemaphore(device_, &semaphoreCI, nullptr, semaphore_) == VK_SUCCESS;
 }
 
-vk::Fence CreateFence(vk::Device device_) {
-    vk::FenceCreateInfo fenceCI{};
-    fenceCI.setFlags(vk::FenceCreateFlagBits::eSignaled);
-    return device_.createFence(fenceCI);
+bool CreateFence(VkDevice device_, VkFence* fence_) {
+    if (!fence_) {
+        return false;
+    }
+
+    VkFenceCreateInfo fenceCI{};
+    fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    return vkCreateFence(device_, &fenceCI, nullptr, fence_) == VK_SUCCESS;
 }

@@ -1,29 +1,35 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
-class VulkanContext;
-class VulkanSwapchain;
+#include "VulkanContext.h"
+#include "VulkanSwapchain.h"
 
 class VulkanPipeline {
 public:
 
-    bool CreateRenderPass(vk::Device device_, vk::Format format_);
-    bool CreatePipelineLayout(vk::Device device_);
-    bool CreatePipeline(VulkanContext* context_);
-    void Cleanup(VulkanContext* context_);
+    bool CreateRenderPass(VkDevice device_, VkFormat format_);
+    bool CreatePipelineLayout(VkDevice device_);
+    bool CreatePipeline(VulkanContext& context_);
 
-    const vk::RenderPass GetRenderPass() const;
-    const vk::Pipeline GetPipeline() const;
+    void CleanupPipeline(VkDevice device_);
+    void CleanupPipelineLayout(VkDevice device_);
+    void CleanupRenderPass(VkDevice device_);
+    void CleanupShaderModule(VkDevice device_);
+    void CleanupAll(VulkanContext& context_);
 
-    vk::ShaderModule LoadShader(vk::Device device_, std::vector<char> buffer_);
+    VkRenderPass GetRenderPass() const;
+    VkPipelineLayout GetPipelineLayout() const;
+    VkPipeline GetPipeline() const;
+
+    bool LoadShader(VkDevice device_, const std::vector<char>& buffer_, VkShaderModule* shaderModule_);
 
 private:
 
-    vk::Pipeline m_Pipeline{VK_NULL_HANDLE};
-    vk::PipelineLayout m_PipelineLayout{VK_NULL_HANDLE};
-    vk::RenderPass m_RenderPass{VK_NULL_HANDLE};
+    VkPipeline m_Pipeline{VK_NULL_HANDLE};
+    VkPipelineLayout m_PipelineLayout{VK_NULL_HANDLE};
+    VkRenderPass m_RenderPass{VK_NULL_HANDLE};
 
-    vk::ShaderModule VS{VK_NULL_HANDLE};
-    vk::ShaderModule FS{VK_NULL_HANDLE};
+    VkShaderModule VS{VK_NULL_HANDLE};
+    VkShaderModule FS{VK_NULL_HANDLE};
 };

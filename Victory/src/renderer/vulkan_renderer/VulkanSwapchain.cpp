@@ -1,40 +1,30 @@
 #include "VulkanSwapchain.h"
-#include "VulkanContext.h"
-#include "VulkanFrameBuffer.h"
-#include "VulkanPipeline.h"
 
 #include <GLFW/glfw3.h>
 
-#include <algorithm>
-
-bool VulkanSwapchain::CreateSurface(VulkanContext *context_, GLFWwindow* window_) {
-    VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(static_cast<VkInstance>(context_->GetInstance()), window_, nullptr, &surface)) {
+bool VulkanSwapchain::CreateSurface(VkInstance instance_, GLFWwindow* window_) {
+    if (glfwCreateWindowSurface(instance_, window_, nullptr, &m_Surface) != VK_SUCCESS) {
         glfwDestroyWindow(window_);
         glfwTerminate();
-        printf("\nGLFW surface was not created");
         return false;
     }
 
-    m_Surface = static_cast<vk::SurfaceKHR>(surface);
     return true;
 }
 
-bool VulkanSwapchain::CreateSwapchain(VulkanContext *context_, GLFWwindow *window_) {
-    vk::PhysicalDevice phDevice = context_->GetPhysicalDevice();
+bool VulkanSwapchain::CreateSwapchain(VulkanContext& context_, GLFWwindow* window_) {
+    VkPhysicalDevice phDevice = context_.GetPhysicalDevice();
 
-    vk::SurfaceCapabilitiesKHR capabilities = phDevice.getSurfaceCapabilitiesKHR(m_Surface);
-    std::vector<vk::SurfaceFormatKHR> surfaceFormats = phDevice.getSurfaceFormatsKHR(m_Surface);
-    std::vector<vk::PresentModeKHR> presentModes = phDevice.getSurfacePresentModesKHR(m_Surface);
+    VkSurfaceCapabilitiesKHR capabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phDevice, m_Surface, &capabilities);
 
-    if (presentModes.empty() || surfaceFormats.empty()) {
-        printf("\nPresent modes or Surface formats are empty");
+    ChooseSwapchainExtent(capabilities, window_);
+    if (!ChooseSwapchainSurfaceFormat(phDevice)) {
         return false;
     }
-
-    m_SurfaceFormat = ChooseSwapchainSurfaceFormat(surfaceFormats);
-    m_PresentMode = ChoosePresentationModeFormat(presentModes);
-    m_Extent = ChooseSwapchainExtent(capabilities, window_);
+    if (!ChoosePresentationModeFormat(phDevice)) {
+        return false;
+    }
 
     uint32_t imageCount = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
@@ -44,146 +34,127 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext *context_, GLFWwindow *windo
     m_Images.reserve(imageCount);
     m_ImageViews.reserve(imageCount);
 
-    vk::SwapchainCreateInfoKHR swapchainCI{{},
-        m_Surface,
-        imageCount,
-        m_SurfaceFormat.format,
-        m_SurfaceFormat.colorSpace,
-        m_Extent,
-        1,
-        vk::ImageUsageFlagBits::eColorAttachment
-        // If i want postprocess need value like VK_IMAGE_USAGE_TRANSFER_DST_BIT
+    VkSwapchainCreateInfoKHR swapchainCI{};
+    swapchainCI.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchainCI.minImageCount = imageCount;
+    swapchainCI.surface = m_Surface;
+    swapchainCI.imageFormat = m_SurfaceFormat.format;
+    swapchainCI.imageColorSpace = m_SurfaceFormat.colorSpace;
+    swapchainCI.imageExtent = m_Extent;
+    swapchainCI.imageArrayLayers = 1;
+    swapchainCI.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // If i want postprocess need value like VK_IMAGE_USAGE_TRANSFER_DST_BIT
+    
+    // TODO: Comiute and Transfer queue family?
+    QueueIndexes queueIndexes = context_.GetQueueIndexes();
+    std::vector<uint32_t> queueFamilyIndexes{
+        queueIndexes.GetQueueIndex(QueueIndex::eGraphics), 
+        queueIndexes.GetQueueIndex(QueueIndex::ePresent)
     };
 
-    // TODO: Compute and Transfer queue family?
-    std::vector<uint32_t> queueFamilyIndices = {context_->GetQueueIndex(0), context_->GetQueueIndex(1)};
-    if (queueFamilyIndices[0] != queueFamilyIndices [1]) {
-        swapchainCI.imageSharingMode = vk::SharingMode::eConcurrent;
-        swapchainCI.setQueueFamilyIndices(queueFamilyIndices);
+    if (queueFamilyIndexes[0] != queueFamilyIndexes[1]) {
+        swapchainCI.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchainCI.queueFamilyIndexCount = 2;
+        swapchainCI.pQueueFamilyIndices = queueFamilyIndexes.data();
     } else {
-        swapchainCI.imageSharingMode = vk::SharingMode::eExclusive;
+        swapchainCI.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swapchainCI.queueFamilyIndexCount = 1;
-        swapchainCI.pQueueFamilyIndices = &queueFamilyIndices[0];
+        swapchainCI.pQueueFamilyIndices = &queueFamilyIndexes[0];
     }
 
     swapchainCI.preTransform = capabilities.currentTransform;
-    swapchainCI.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    swapchainCI.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchainCI.presentMode = m_PresentMode;
     swapchainCI.clipped = VK_TRUE;
     swapchainCI.oldSwapchain = VK_NULL_HANDLE;
 
-    m_Swapchain = context_->GetDevice().createSwapchainKHR(swapchainCI);
-    m_Images = context_->GetDevice().getSwapchainImagesKHR(m_Swapchain);
+    VkDevice device = context_.GetDevice();
+    if (vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &m_Swapchain) != VK_SUCCESS) {
+        return false;
+    }
+
+    m_Images.resize(imageCount);
+    if (vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, m_Images.data()) != VK_SUCCESS) {
+        printf("\nSwapchain images were not geted!");
+        return false;
+    }
+
     return true;
 }
 
-bool VulkanSwapchain::RecreateSwapchain(VulkanContext* context_, GLFWwindow* window_, VulkanFrameBuffer* buffer_, VulkanPipeline* pipeline_) {
-    // vk::Device device = context_->GetDevice();
-    // device.waitIdle();
+bool VulkanSwapchain::CreateImageViews(VulkanContext& context_) {
+    VkDevice device = context_.GetDevice();
 
-    CleanupSwapchain(context_, buffer_);
-
-    if (!CreateSwapchain(context_, window_)) {
-        return false;
-    }
-    if (!CreateImageViews(context_)) {
-        return false;
-    }
-    if (!buffer_->CreateFrameBuffer(context_, this, pipeline_)) {
-        return false;
-    }
-    return true;
-}
-
-bool VulkanSwapchain::CreateImageViews(VulkanContext *context_) {
-    vk::Device device = context_->GetDevice();
-    vk::ImageViewCreateInfo imageViewCI{};
-    for (auto&& image : m_Images) {
-        imageViewCI.image = image;
-        imageViewCI.viewType = vk::ImageViewType::e2D;
+    m_ImageViews.resize(m_Images.size());
+    VkImageViewCreateInfo imageViewCI{};
+    imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewCI.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCI.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCI.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCI.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageViewCI.subresourceRange.baseArrayLayer = 0;
+    imageViewCI.subresourceRange.levelCount = 1;
+    imageViewCI.subresourceRange.baseArrayLayer = 0;
+    imageViewCI.subresourceRange.layerCount = 1;
+    for (size_t i{0}, n = m_Images.size(); i < n; ++i) {
+        imageViewCI.image = m_Images[i];
         imageViewCI.format = m_SurfaceFormat.format;
-        imageViewCI.components.r = vk::ComponentSwizzle::eIdentity;
-        imageViewCI.components.g = vk::ComponentSwizzle::eIdentity;
-        imageViewCI.components.b = vk::ComponentSwizzle::eIdentity;
-        imageViewCI.components.a = vk::ComponentSwizzle::eIdentity;
-        imageViewCI.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        imageViewCI.subresourceRange.baseArrayLayer = 0;
-        imageViewCI.subresourceRange.levelCount = 1;
-        imageViewCI.subresourceRange.baseArrayLayer = 0;
-        imageViewCI.subresourceRange.layerCount = 1;
 
-        vk::ImageView imageView = device.createImageView(imageViewCI);
-        m_ImageViews.emplace_back(imageView);
+        if (vkCreateImageView(device, &imageViewCI, nullptr, &m_ImageViews[i]) != VK_SUCCESS) {
+            printf("\nImage view with index %lu was not created!", i);
+            return false;
+        }
     }
     return true;
 }
 
-void VulkanSwapchain::CleanupSwapchain(VulkanContext* context_, VulkanFrameBuffer* buffer_) {
-    vk::Device device = context_->GetDevice();
-
-    buffer_->CleanupFrameBuffers(context_);
-
+void VulkanSwapchain::CleanupImageViews(VkDevice device_) {
     for (auto&& imageView : m_ImageViews) {
-        device.destroyImageView(imageView);
+        vkDestroyImageView(device_, imageView, nullptr);
     }
-
-    device.destroySwapchainKHR(m_Swapchain);
 }
 
-void VulkanSwapchain::Cleanup(VulkanContext *context_) {
-    vk::Instance instance = context_->GetInstance();
-    vk::Device device = context_->GetDevice();
-    for (auto&& imageView : m_ImageViews) {
-        device.destroyImageView(imageView);
-    }
-    device.destroySwapchainKHR(m_Swapchain);
-    instance.destroySurfaceKHR(m_Surface);
+void VulkanSwapchain::CleanupSwapchain(VkDevice device_) {
+    vkDestroySwapchainKHR(device_, m_Swapchain, nullptr);
 }
 
-const vk::SurfaceKHR VulkanSwapchain::GetSurface() const{
+void VulkanSwapchain::CleanupSurface(VkInstance instance_) {
+    vkDestroySurfaceKHR(instance_, m_Surface, nullptr);
+}
+
+void VulkanSwapchain::CleanupAll(VulkanContext& context_) {
+    CleanupImageViews(context_.GetDevice());
+    CleanupSwapchain(context_.GetDevice());
+    CleanupSurface(context_.GetInstance());
+}
+
+VkSurfaceKHR VulkanSwapchain::GetSurface() const {
     return m_Surface;
 }
 
-const vk::SwapchainKHR VulkanSwapchain::GetSwapchain() const {
+VkSwapchainKHR VulkanSwapchain::GetSwapchain() const {
     return m_Swapchain;
 }
 
-vk::Format VulkanSwapchain::GetSwapchainFormat() const{
-    return m_SurfaceFormat.format;
+VkSurfaceFormatKHR VulkanSwapchain::GetSurfaceFormat() const {
+    return m_SurfaceFormat;
 }
 
-const vk::Extent2D VulkanSwapchain::GetExtent() const{
+VkExtent2D VulkanSwapchain::GetExtent() const {
     return m_Extent;
 }
 
-const std::vector<vk::ImageView>& VulkanSwapchain::GetImageViews() const{
+const std::vector<VkImageView>& VulkanSwapchain::GetImageViews() const{
     return m_ImageViews;
 }
 
-vk::SurfaceFormatKHR VulkanSwapchain::ChooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats_) {
-    for (auto&& format : formats_) {
-        if (format.format == vk::Format::eB8G8R8A8Unorm &&
-            format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-            return format;
-        }
-    }
-
-    return formats_[0];
-}
-
-vk::PresentModeKHR VulkanSwapchain::ChoosePresentationModeFormat(const std::vector<vk::PresentModeKHR>& modes_) {
-    for (auto&& mode : modes_) {
-        if (mode == vk::PresentModeKHR::eMailbox) {
-            return mode;
-        }
-    }
-
-    return vk::PresentModeKHR::eFifo;
-}
-
-vk::Extent2D VulkanSwapchain::ChooseSwapchainExtent(const vk::SurfaceCapabilitiesKHR &capabilities_, GLFWwindow *window_) {
+//----------------------------------------------------------------------
+//--------------------------------PRIVATE-------------------------------
+//----------------------------------------------------------------------
+void VulkanSwapchain::ChooseSwapchainExtent(VkSurfaceCapabilitiesKHR capabilities_, GLFWwindow *window_) {
     if (capabilities_.currentExtent.width != UINT32_MAX) {
-        return capabilities_.currentExtent;
+        m_Extent = capabilities_.currentExtent;
     } else {
         int width, height;
         glfwGetFramebufferSize(window_, &height, &width);
@@ -198,6 +169,64 @@ vk::Extent2D VulkanSwapchain::ChooseSwapchainExtent(const vk::SurfaceCapabilitie
         actualExtent.height = std::clamp(actualExtent.height, 
             capabilities_.minImageExtent.height, capabilities_.maxImageExtent.height);
 
-        return actualExtent;
+        m_Extent = actualExtent;
     }
 }
+
+bool VulkanSwapchain::ChooseSwapchainSurfaceFormat(VkPhysicalDevice phDevice_) {
+    uint32_t surfaceFormatsCount{0};
+    vkGetPhysicalDeviceSurfaceFormatsKHR(phDevice_, m_Surface, &surfaceFormatsCount, nullptr);
+
+    if (surfaceFormatsCount == 0) {
+        printf("\nSurface formats count is 0!");
+        return false;
+    }
+
+    std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatsCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(phDevice_, m_Surface, &surfaceFormatsCount, surfaceFormats.data());
+
+    if (surfaceFormats.empty()) {
+        printf("\nSurface formats is empty");
+        return false;
+    }
+
+    for (auto&& format : surfaceFormats) {
+        if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
+            format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            m_SurfaceFormat = format;
+            return true;
+        }
+    }
+
+    m_SurfaceFormat = surfaceFormats[0];
+    return true;
+}
+
+bool VulkanSwapchain::ChoosePresentationModeFormat(VkPhysicalDevice phDevice_) {
+    uint32_t presentModesCount{0};
+    vkGetPhysicalDeviceSurfacePresentModesKHR(phDevice_, m_Surface, &presentModesCount, nullptr);
+
+    if (presentModesCount == 0) {
+        printf("\nPresent modes count is 0!");
+        return false;
+    }
+
+    std::vector<VkPresentModeKHR> presentModes(presentModesCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(phDevice_, m_Surface, &presentModesCount, presentModes.data());
+
+    if (presentModes.empty()) {
+        printf("\nPresent modes is empty");
+        return false;
+    }
+
+    for (auto&& mode : presentModes) {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            m_PresentMode = mode;
+            return true;
+        }
+    }
+
+    m_PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+    return true;
+}
+

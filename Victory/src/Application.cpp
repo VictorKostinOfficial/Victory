@@ -8,6 +8,7 @@
 namespace Victory {
 
 Application* Application::s_Instance{ nullptr };
+Renderer* Application::s_Renderer{ nullptr };
 
 Application::Application(const ApplicationSpecification &applicationSpecification)
     : m_ApplicationSpec(applicationSpecification) {
@@ -15,25 +16,24 @@ Application::Application(const ApplicationSpecification &applicationSpecificatio
     if (s_Instance) {
         throw std::runtime_error("Application already exists");
     }
+    
+    s_Renderer = Renderer::CreateRenderer();
     s_Instance = this;
 }
 
 Application::~Application() {
+    Renderer::CleanupRenderer();
 }
-
+ 
 void Application::Run() {
-    Renderer* pRenderer = Renderer::CreateRenderer(m_ApplicationSpec.Name);
-
-    while (pRenderer->IsRunning())
+    s_Renderer->Initialize(m_ApplicationSpec.Name);
+    while (s_Renderer->IsRunning())
     {
-        pRenderer->PollEvents();
-        pRenderer->BeginFrame();
-        pRenderer->Resize();
-        pRenderer->EndFrame();
+        s_Renderer->PollEvents();
+        s_Renderer->BeginFrame();
+        s_Renderer->EndFrame();
     }
-
-    // TODO: Make RAII?
-    delete pRenderer;
+    s_Renderer->Destroy();
 }
     
 } // namespace Victory

@@ -2,20 +2,19 @@
 
 #include "../Renderer.h"
 
-#include "vulkan/vulkan.hpp"
+#include "VulkanContext.h"
+#include "VulkanSwapchain.h"
+#include "VulkanPipeline.h"
+#include "VulkanFrameBuffer.h"
 
 struct GLFWwindow;
 
-class VulkanContext;
-class VulkanSwapchain;
-class VulkanPipeline;
-class VulkanFrameBuffer;
-
-class VulkanRenderer : public Renderer {
+class VulkanRenderer final : public Renderer {
 public:
 
-    VulkanRenderer();
-    virtual ~VulkanRenderer();
+    static Renderer* CreateRenderer();
+
+    virtual void Initialize(const char* applicationName_) override;
 
     virtual bool IsRunning() override;
     virtual void PollEvents() override;
@@ -23,27 +22,27 @@ public:
     virtual void Resize() override;
     virtual void BeginFrame() override;
     virtual void EndFrame() override;
+
     virtual void Destroy() override;
 
 private:
 
-    virtual bool Initialize(const char* applicationName) override;
+    VulkanRenderer() = default;
+    virtual ~VulkanRenderer() = default;
 
 private: 
 
-    // TODO: till we include vulkan.hpp here
-    // we can save state here and rid of all pointers
     GLFWwindow* m_Window;
 
-    VulkanContext* m_VulkanContext;
-    VulkanSwapchain* m_VulkanSwapchain;
-    VulkanPipeline* m_VulkanPipeline;
-    VulkanFrameBuffer* m_VulkanFrameBuffer;
+    VulkanContext m_VulkanContext;
+    VulkanSwapchain m_VulkanSwapchain;
+    VulkanPipeline m_VulkanPipeline;
+    VulkanFrameBuffer m_VulkanFrameBuffer;
 
     uint32_t m_CurrentFrame{0};
-    const uint32_t MAX_FRAMES_IN_FLIGHT{2};
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    std::vector<vk::Semaphore> m_AvailableSemaphores;
-    std::vector<vk::Semaphore> m_FinishedSemaphores;
-    std::vector<vk::Fence> m_InFlightFences;
+    std::vector<VkSemaphore> m_AvailableSemaphores;
+    std::vector<VkSemaphore> m_FinishedSemaphores;
+    std::vector<VkFence> m_InFlightFences;
 };
