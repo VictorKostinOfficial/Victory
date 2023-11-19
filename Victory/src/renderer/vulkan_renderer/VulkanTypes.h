@@ -19,7 +19,7 @@ struct QueueIndexes {
     uint32_t GetQueueIndex(QueueIndex queueIndex_) {
         switch (queueIndex_) {
         case QueueIndex::eGraphics:
-            return m_ComputeQueueIndex;
+            return m_GraphicsQueueIndex;
         case QueueIndex::ePresent:
             return m_PresentQueueIndex;
         case QueueIndex::eCompute:

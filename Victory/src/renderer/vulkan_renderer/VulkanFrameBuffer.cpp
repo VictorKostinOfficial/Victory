@@ -17,7 +17,7 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_, VulkanSwapch
         frameBufferCI.pAttachments = &imageViews[i];
 
         if (vkCreateFramebuffer(device, &frameBufferCI, nullptr, &m_FrameBuffers[i]) != VK_SUCCESS) {
-            printf("\nFrame buffer %lu, was not created!", i);
+            printf("\nFrame buffer %zu, was not created!", i);
             return false;
         }
     }

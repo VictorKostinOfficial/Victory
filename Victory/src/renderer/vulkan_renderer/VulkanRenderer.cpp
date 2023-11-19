@@ -100,8 +100,6 @@ void VulkanRenderer::Resize() {
     m_VulkanSwapchain.CleanupSwapchain(device);
     m_VulkanSwapchain.CleanupImageViews(device);
 
-    m_VulkanSwapchain.CreateSwapchain(m_VulkanContext, m_Window);
-
     CHK_RESULT(m_VulkanSwapchain.CreateSwapchain(m_VulkanContext, m_Window),
         "Swapchain was not created!");
 
