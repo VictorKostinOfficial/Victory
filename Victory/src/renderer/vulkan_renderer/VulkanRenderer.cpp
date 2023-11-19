@@ -8,6 +8,12 @@
         throw std::runtime_error(MESSAGE); \
     } 
 
+void FrameBufferResizeCallback(GLFWwindow *window_, int width_, int height_) {
+    (void)width_;
+    (void)height_;
+    auto app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window_));
+    app->SetIsResized(true);
+}
 
 Renderer* VulkanRenderer::CreateRenderer() {
     return new VulkanRenderer();
@@ -26,6 +32,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
         glfwTerminate();
         throw std::runtime_error("GLFW Window was not created!");
     }
+
+    glfwSetWindowUserPointer(m_Window, this);
+    glfwSetFramebufferSizeCallback(m_Window, FrameBufferResizeCallback);
 
     CHK_RESULT(m_VulkanContext.CreateInstance(applicationName_), 
         "Insance was not created!");
@@ -119,6 +128,8 @@ void VulkanRenderer::Resize() {
 
     CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline),
         "Frame buffers were not created!");
+    
+    m_IsResized = false;
 }
 
 void VulkanRenderer::BeginFrame() {
@@ -130,7 +141,7 @@ void VulkanRenderer::BeginFrame() {
 
     uint32_t imageIndex{0};
     VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain.GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
-    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR) {
+    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
         Resize();
         vkDestroySemaphore(device, m_AvailableSemaphores[m_CurrentFrame], nullptr);
         CreateSemaphore(device, &m_AvailableSemaphores[m_CurrentFrame]);
@@ -179,7 +190,7 @@ void VulkanRenderer::BeginFrame() {
 
     // TODO: Resize by changing window size
     VkResult presentResult = vkQueuePresentKHR(presentQueue, &presentInfo);
-    if (presentResult ==  VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
+    if (presentResult ==  VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
         Resize();
     } else if (presentResult != VK_SUCCESS) {
         throw std::runtime_error("Failed to present swap chain image!");
@@ -209,4 +220,8 @@ void VulkanRenderer::Destroy() {
     m_VulkanSwapchain.CleanupAll(m_VulkanContext);
     m_VulkanContext.CleanupAll();
     printf("\nVulkanRenderer::Destroy\n");
+}
+
+void VulkanRenderer::SetIsResized(bool isResized_) {
+    m_IsResized = isResized_;
 }
