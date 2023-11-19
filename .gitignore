@@ -5,6 +5,9 @@
 #shaders
 Victory/shaders/*.spv
 
+#trash
+Victory/src/renderer/vulkan_renderer/backup
+
 #CMakefiles
 bin
 build
