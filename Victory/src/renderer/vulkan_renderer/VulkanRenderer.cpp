@@ -94,11 +94,22 @@ void VulkanRenderer::PollEvents() {
 
 void VulkanRenderer::Resize() {
     printf("\nVulkanRenderer::Resize");
+
+    // TODO: doesn't work on UNIX
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(m_Window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(m_Window, &width, &height);
+        printf("\n %i%i", width,height);
+        glfwWaitEvents();
+    }
+
     VkDevice device = m_VulkanContext.GetDevice();
     vkDeviceWaitIdle(device);
 
     m_VulkanSwapchain.CleanupSwapchain(device);
     m_VulkanSwapchain.CleanupImageViews(device);
+    m_VulkanFrameBuffer.CleanupFrameBuffers(device);
 
     CHK_RESULT(m_VulkanSwapchain.CreateSwapchain(m_VulkanContext, m_Window),
         "Swapchain was not created!");
@@ -114,16 +125,17 @@ void VulkanRenderer::BeginFrame() {
     printf("\nVulkanRenderer::BeginFrame");
 
     vk::Device device = m_VulkanContext.GetDevice();
-
     CHK_RESULT((vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) == VK_SUCCESS),
         "Wait for fences = false!");
 
     uint32_t imageIndex{0};
-    VkResult result = vkAcquireNextImageKHR(device, m_VulkanSwapchain.GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain.GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR) {
         Resize();
+        vkDestroySemaphore(device, m_AvailableSemaphores[m_CurrentFrame], nullptr);
+        CreateSemaphore(device, &m_AvailableSemaphores[m_CurrentFrame]);
         return;
-    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    } else if (acquireResult != VK_SUCCESS) {
         throw std::runtime_error("Failde to acquire swap chain image!");
     }
 
@@ -164,6 +176,8 @@ void VulkanRenderer::BeginFrame() {
     presentInfo.pImageIndices = &imageIndex;
 
     VkQueue presentQueue = m_VulkanContext.GetQueue(QueueIndex::ePresent);
+
+    // TODO: Resize by changing window size
     VkResult presentResult = vkQueuePresentKHR(presentQueue, &presentInfo);
     if (presentResult ==  VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
         Resize();
