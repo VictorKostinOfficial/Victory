@@ -4,3 +4,6 @@
 [submodule "Victory/externs/glfw"]
 	path = Victory/externs/glfw
 	url = https://github.com/VictorKostinOfficial/glfw.git
+[submodule "Victory/externs/glm"]
+	path = Victory/externs/glm
+	url = https://github.com/VictorKostinOfficial/glm.git

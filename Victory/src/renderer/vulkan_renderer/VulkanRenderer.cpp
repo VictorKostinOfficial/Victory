@@ -128,8 +128,6 @@ void VulkanRenderer::Resize() {
 
     CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline),
         "Frame buffers were not created!");
-    
-    m_IsResized = false;
 }
 
 void VulkanRenderer::BeginFrame() {
@@ -142,6 +140,7 @@ void VulkanRenderer::BeginFrame() {
     uint32_t imageIndex{0};
     VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain.GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
     if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
+        m_IsResized = false;
         Resize();
         vkDestroySemaphore(device, m_AvailableSemaphores[m_CurrentFrame], nullptr);
         CreateSemaphore(device, &m_AvailableSemaphores[m_CurrentFrame]);
