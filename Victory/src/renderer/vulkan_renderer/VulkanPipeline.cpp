@@ -1,6 +1,7 @@
 #include "VulkanPipeline.h"
 
 #include "../../Utils.h"
+#include "VulkanVertexData.h"
 
 bool VulkanPipeline::CreateRenderPass(VkDevice device_, VkFormat format_) {
     VkAttachmentDescription colorAttachment{};
@@ -86,8 +87,15 @@ bool VulkanPipeline::CreatePipeline(VulkanContext &context_) {
     };
 
     // TODO: Rid of hard code data from vert shader
+    auto&& bindingDescription = VulkanRenderer::GetBindingDescription();
+    auto&& attributegDescriptions = VulkanRenderer::GetAttributeDescriptions();
+
     VkPipelineVertexInputStateCreateInfo vertexInputStateCI{};
     vertexInputStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputStateCI.vertexBindingDescriptionCount = 1;
+    vertexInputStateCI.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputStateCI.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributegDescriptions.size());
+    vertexInputStateCI.pVertexAttributeDescriptions = attributegDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCI{};
     inputAssemblyStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;

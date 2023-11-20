@@ -6,6 +6,7 @@
 #include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
 #include "VulkanFrameBuffer.h"
+#include "VertexBuffer.h"
 
 struct GLFWwindow;
 
@@ -40,6 +41,7 @@ private:
     VulkanSwapchain m_VulkanSwapchain;
     VulkanPipeline m_VulkanPipeline;
     VulkanFrameBuffer m_VulkanFrameBuffer;
+    VertexBuffer m_VertexBuffer;
 
     uint32_t m_CurrentFrame{0};
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;

@@ -46,7 +46,7 @@ bool VulkanFrameBuffer::CreateCommandBuffer(VkDevice device_, uint32_t commandBu
     return vkAllocateCommandBuffers(device_, &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
 
-void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_) {
+void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_, VertexBuffer& vertexBuffer_) {
     VkCommandBufferBeginInfo commandBufferBI{};
     commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -73,6 +73,10 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipeline());
 
+        std::vector<VkBuffer> vertexBuffers{vertexBuffer_.GetBuffer()};
+        std::vector<VkDeviceSize> offsets{0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
+
         VkViewport viewport{};
         viewport.x = 0.f;
         viewport.y = 0.f;
@@ -84,7 +88,7 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &rect);
 
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        vkCmdDraw(commandBuffer, vertexBuffer_.GetVertexSize(), 1, 0, 0);
 
     }
     vkCmdEndRenderPass(commandBuffer);

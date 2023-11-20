@@ -37,12 +37,13 @@ find_package(Vulkan REQUIRED)
 
 add_subdirectory(externs/glfw)
 add_subdirectory(externs/imgui)
+add_subdirectory(externs/glm)
 
 add_library(Victory ${sources})
 
 add_dependencies(Victory Shaders)
 
-target_link_libraries(Victory PRIVATE Vulkan::Vulkan glfw imgui)
+target_link_libraries(Victory PRIVATE Vulkan::Vulkan glfw imgui glm::glm)
 
 set_target_properties(Victory PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
