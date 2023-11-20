@@ -9,7 +9,7 @@ file(GLOB_RECURSE GLSL_SOURCE_FILES
 foreach(GLSL ${GLSL_SOURCE_FILES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
 if(WIN32)
-    set(SPIRV ${CMAKE_BINARY_DIR}/Sandbox/config/${FILE_NAME}.spv)
+    set(SPIRV ${CMAKE_BINARY_DIR}/Sandbox/$<CONFIG>/${FILE_NAME}.spv)
 else()
     set(SPIRV ${CMAKE_BINARY_DIR}/Sandbox/${FILE_NAME}.spv)
 endif()
