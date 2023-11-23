@@ -157,10 +157,6 @@ VkInstance VulkanContext::GetInstance() {
     return m_Instance;
 }
 
-VkDevice VulkanContext::GetDevice() {
-    return m_Device;
-}
-
 VkPhysicalDevice VulkanContext::GetPhysicalDevice() {
     return m_PhysicalDevice;
 }

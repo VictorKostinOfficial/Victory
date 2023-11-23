@@ -20,6 +20,9 @@ public:
     void CleanupAll(VulkanContext& context_);
 
     VkCommandBuffer GetCommandBuffer(uint32_t commandBufferIndex) const;
+    inline VkCommandPool GetCommandPool() {
+        return m_CommandPool;
+    }
 
 private:
 

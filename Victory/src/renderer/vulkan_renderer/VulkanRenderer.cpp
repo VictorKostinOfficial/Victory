@@ -74,11 +74,10 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanFrameBuffer.CreateCommandPool(m_VulkanContext),
         "Command pool was not created!");
 
-    CHK_RESULT(m_VertexBuffer.CreateVertexBuffer(m_VulkanContext.GetDevice()),
+    m_VertexBuffer = new VertexBuffer(&m_VulkanContext, &m_VulkanFrameBuffer);
+
+    CHK_RESULT(m_VertexBuffer->CreateVertexBuffer(),
         "Vertex buffer was not created");
-    
-    CHK_RESULT(m_VertexBuffer.MemoryAllocation(m_VulkanContext),
-        "Memory for vertex buffer was not allocated");
     
     CHK_RESULT(m_VulkanFrameBuffer.CreateCommandBuffer(m_VulkanContext.GetDevice(), MAX_FRAMES_IN_FLIGHT),
         "Command buffer was not created!");
@@ -160,7 +159,7 @@ void VulkanRenderer::BeginFrame() {
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer.GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);
 
-    m_VulkanFrameBuffer.RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, m_CurrentFrame, imageIndex, m_VertexBuffer);
+    m_VulkanFrameBuffer.RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, m_CurrentFrame, imageIndex, *m_VertexBuffer);
 
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
@@ -219,7 +218,7 @@ void VulkanRenderer::Destroy() {
         vkDestroyFence(device, m_InFlightFences[i], nullptr);
     }
 
-    m_VertexBuffer.CleanupAll(m_VulkanContext.GetDevice());
+    m_VertexBuffer->CleanupAll();
     m_VulkanFrameBuffer.CleanupAll(m_VulkanContext);
     m_VulkanPipeline.CleanupAll(m_VulkanContext);
     m_VulkanSwapchain.CleanupAll(m_VulkanContext);

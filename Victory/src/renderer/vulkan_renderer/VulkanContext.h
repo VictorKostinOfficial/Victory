@@ -21,7 +21,11 @@ public:
     void CleanupAll();
 
     VkInstance GetInstance();
-    VkDevice GetDevice();
+
+    inline VkDevice GetDevice() {
+        return m_Device;
+    }
+
     VkPhysicalDevice GetPhysicalDevice();
     VkQueue GetQueue(QueueIndex queue_);
     QueueIndexes& GetQueueIndexes();
