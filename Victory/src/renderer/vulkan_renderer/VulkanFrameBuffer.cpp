@@ -73,9 +73,12 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipeline());
 
-        std::vector<VkBuffer> vertexBuffers{vertexBuffer_.GetBuffer()};
+        std::vector<VkBuffer> vertexBuffers{vertexBuffer_.GetVertexBuffer()};
+        VkBuffer indexBuffer{vertexBuffer_.GetIndexBuffer()};
         std::vector<VkDeviceSize> offsets{0};
+
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
         VkViewport viewport{};
         viewport.x = 0.f;
@@ -88,7 +91,7 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &rect);
 
-        vkCmdDraw(commandBuffer, vertexBuffer_.GetVertexSize(), 1, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, vertexBuffer_.GetIndicesCount(), 1, 0, 0, 0);
 
     }
     vkCmdEndRenderPass(commandBuffer);

@@ -78,6 +78,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 
     CHK_RESULT(m_VertexBuffer->CreateVertexBuffer(),
         "Vertex buffer was not created");
+
+    CHK_RESULT(m_VertexBuffer->CreateIndexBuffer(),
+        "Index buffer was not created");
     
     CHK_RESULT(m_VulkanFrameBuffer.CreateCommandBuffer(m_VulkanContext.GetDevice(), MAX_FRAMES_IN_FLIGHT),
         "Command buffer was not created!");
