@@ -3,7 +3,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "VulkanPipeline.h"
-#include "VertexBuffer.h"
+#include "VulkanBuffer.h"
 
 class VulkanFrameBuffer {
 public:
@@ -13,7 +13,7 @@ public:
     bool CreateCommandBuffer(VkDevice device_, uint32_t commandBufferCount_);
 
     // TODO: move function to VulkanRenderer
-    void RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_, VertexBuffer& vertexBuffer_);
+    void RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_, VulkanBuffer& vertexBuffer_);
 
     void CleanupCommandPool(VkDevice device_);
     void CleanupFrameBuffers(VkDevice device_);

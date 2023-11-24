@@ -1,17 +1,25 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <vector>
 
 class VulkanContext;
 class VulkanFrameBuffer;
+class VulkanSwapchain;
+class VulkanPipeline;
 
-class VertexBuffer
+class VulkanBuffer
 {
 public:
-    VertexBuffer(VulkanContext* context_, VulkanFrameBuffer* frameBuffer_);
+    VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
 
     bool CreateVertexBuffer();
     bool CreateIndexBuffer();
+    bool CreateUniformBuffers(uint32_t maxFrames_);
+    bool CreateDescriptorPool(uint32_t maxFrames_);
+    bool CreateDescriptorSets(uint32_t maxFrames_);
+
+    void UpdateUniformBuffer(uint32_t imageIndex_);
 
     void FreeMemory();
     void CleanupVertexBuffer();
@@ -23,6 +31,10 @@ public:
 
     inline VkBuffer GetIndexBuffer() const {
         return m_IndexBuffer;
+    }
+
+    inline const VkDescriptorSet& GetDescriptorSet(uint32_t imageIndex_) const {
+        return m_DescriptorSets[imageIndex_];
     }
 
     uint32_t GetIndicesCount() const;
@@ -37,10 +49,19 @@ private:
 private:
 
     VulkanContext* m_Context;
+    VulkanPipeline* m_Pipeline;
     VulkanFrameBuffer* m_FrameBuffer;
+    VulkanSwapchain* m_Swapchain;
 
     VkBuffer m_VertexBuffer{VK_NULL_HANDLE};
     VkDeviceMemory m_VertexBufferMemory{VK_NULL_HANDLE};
     VkBuffer m_IndexBuffer{VK_NULL_HANDLE};
     VkDeviceMemory m_IndexBufferMemory{VK_NULL_HANDLE};
+
+    VkDescriptorPool m_DescriptorPool{VK_NULL_HANDLE};
+    std::vector<VkDescriptorSet> m_DescriptorSets;
+
+    std::vector<VkBuffer> m_UniformBuffers;
+    std::vector<VkDeviceMemory> m_UniformBuffersMemory;
+    std::vector<void*> m_UniformBuffersMapped;
 };

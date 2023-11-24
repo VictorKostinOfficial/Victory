@@ -45,11 +45,27 @@ bool VulkanPipeline::CreateRenderPass(VkDevice device_, VkFormat format_) {
     return vkCreateRenderPass(device_, &renderPassCI, nullptr, &m_RenderPass) == VK_SUCCESS;
 }
 
+bool VulkanPipeline::CreateDescriptorSetLayout(VkDevice device_) {
+    VkDescriptorSetLayoutBinding layoutBinding{};
+    layoutBinding.binding = 0;
+    layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBinding.descriptorCount = 1;
+    layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI{};
+    descriptorSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCI.bindingCount = 1;
+    descriptorSetLayoutCI.pBindings = &layoutBinding;
+
+    return (vkCreateDescriptorSetLayout(device_, &descriptorSetLayoutCI, nullptr, &m_DescriptorSetLayout) == VK_SUCCESS);
+}
+
 bool VulkanPipeline::CreatePipelineLayout(VkDevice device_) {
     VkPipelineLayoutCreateInfo pipelineLayoutCI{};
     pipelineLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutCI.setLayoutCount = 0;
-    pipelineLayoutCI.pSetLayouts = nullptr;
+    pipelineLayoutCI.setLayoutCount = 1;
+    pipelineLayoutCI.pSetLayouts = &m_DescriptorSetLayout;
     pipelineLayoutCI.pushConstantRangeCount = 0;
     pipelineLayoutCI.pPushConstantRanges = nullptr;
 
@@ -135,7 +151,7 @@ bool VulkanPipeline::CreatePipeline(VulkanContext &context_) {
     rasterizationStateCI.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationStateCI.lineWidth = 1.f;
     rasterizationStateCI.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizationStateCI.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizationStateCI.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizationStateCI.depthBiasEnable = VK_FALSE;
     rasterizationStateCI.depthBiasConstantFactor = 0.f;
     rasterizationStateCI.depthBiasClamp = 0.f;
@@ -217,6 +233,10 @@ void VulkanPipeline::CleanupPipelineLayout(VkDevice device_) {
     vkDestroyPipelineLayout(device_, m_PipelineLayout, nullptr);
 }
 
+void VulkanPipeline::CleanupDescriptorSet(VkDevice device_) {
+    vkDestroyDescriptorSetLayout(device_, m_DescriptorSetLayout, nullptr);
+}
+
 void VulkanPipeline::CleanupRenderPass(VkDevice device_) {
     vkDestroyRenderPass(device_, m_RenderPass, nullptr);
 }
@@ -230,6 +250,7 @@ void VulkanPipeline::CleanupAll(VulkanContext &context_) {
     VkDevice device = context_.GetDevice();
     CleanupPipeline(device);
     CleanupPipelineLayout(device);
+    CleanupDescriptorSet(device);
     CleanupRenderPass(device);
     CleanupShaderModule(device);
 }

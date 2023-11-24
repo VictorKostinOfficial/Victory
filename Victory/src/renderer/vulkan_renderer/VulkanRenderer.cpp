@@ -61,6 +61,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 
     CHK_RESULT(m_VulkanPipeline.CreateRenderPass(m_VulkanContext.GetDevice(), m_VulkanSwapchain.GetSurfaceFormat().format),
         "Render pass was not created!");
+
+    CHK_RESULT(m_VulkanPipeline.CreateDescriptorSetLayout(m_VulkanContext.GetDevice()),
+        "Descriptor set was not created");
     
     CHK_RESULT(m_VulkanPipeline.CreatePipelineLayout(m_VulkanContext.GetDevice()),
         "Pipeline layout was not created!");
@@ -74,14 +77,23 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanFrameBuffer.CreateCommandPool(m_VulkanContext),
         "Command pool was not created!");
 
-    m_VertexBuffer = new VertexBuffer(&m_VulkanContext, &m_VulkanFrameBuffer);
+    m_VulkanBuffer = new VulkanBuffer(&m_VulkanContext, &m_VulkanPipeline, &m_VulkanFrameBuffer, &m_VulkanSwapchain);
 
-    CHK_RESULT(m_VertexBuffer->CreateVertexBuffer(),
+    CHK_RESULT(m_VulkanBuffer->CreateVertexBuffer(),
         "Vertex buffer was not created");
 
-    CHK_RESULT(m_VertexBuffer->CreateIndexBuffer(),
+    CHK_RESULT(m_VulkanBuffer->CreateIndexBuffer(),
         "Index buffer was not created");
-    
+
+    CHK_RESULT(m_VulkanBuffer->CreateUniformBuffers(MAX_FRAMES_IN_FLIGHT),
+        "Uniform buffer was not created");
+
+    CHK_RESULT(m_VulkanBuffer->CreateDescriptorPool(MAX_FRAMES_IN_FLIGHT),
+        "Descriptor pool was not created");
+
+    CHK_RESULT(m_VulkanBuffer->CreateDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+        "Descriptor sets was not created");
+
     CHK_RESULT(m_VulkanFrameBuffer.CreateCommandBuffer(m_VulkanContext.GetDevice(), MAX_FRAMES_IN_FLIGHT),
         "Command buffer was not created!");
 
@@ -159,10 +171,12 @@ void VulkanRenderer::BeginFrame() {
 
     vkResetFences(device, 1, &m_InFlightFences[m_CurrentFrame]);
 
+    m_VulkanBuffer->UpdateUniformBuffer(imageIndex);
+
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer.GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);
 
-    m_VulkanFrameBuffer.RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, m_CurrentFrame, imageIndex, *m_VertexBuffer);
+    m_VulkanFrameBuffer.RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, m_CurrentFrame, imageIndex, *m_VulkanBuffer);
 
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
@@ -221,7 +235,7 @@ void VulkanRenderer::Destroy() {
         vkDestroyFence(device, m_InFlightFences[i], nullptr);
     }
 
-    m_VertexBuffer->CleanupAll();
+    m_VulkanBuffer->CleanupAll();
     m_VulkanFrameBuffer.CleanupAll(m_VulkanContext);
     m_VulkanPipeline.CleanupAll(m_VulkanContext);
     m_VulkanSwapchain.CleanupAll(m_VulkanContext);
