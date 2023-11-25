@@ -40,6 +40,7 @@ add_subdirectory(externs/imgui)
 add_subdirectory(externs/glm)
 
 add_library(Victory ${sources})
+target_include_directories(Victory PRIVATE externs/stb_image)
 
 add_dependencies(Victory Shaders)
 

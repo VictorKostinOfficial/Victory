@@ -101,6 +101,42 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
     vkEndCommandBuffer(commandBuffer);
 }
 
+VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands(VkDevice device_) {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_CommandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device_, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    return commandBuffer;
+}
+
+void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_, VulkanContext* context_) {
+    vkEndCommandBuffer(commandBuffer_);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer_;
+
+    // TODO: submit via transfer queue, need Transfer Command pool
+    // https://vulkan-tutorial.com/Vertex_buffers/Staging_buffer
+
+    VkQueue queue = context_->GetQueue(QueueIndex::eGraphics);
+    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(queue);
+
+    vkFreeCommandBuffers(context_->GetDevice(), m_CommandPool, 1, &commandBuffer_);
+}
+
 void VulkanFrameBuffer::CleanupFrameBuffers(VkDevice device_) {
     for (auto&& frameBuffer : m_FrameBuffers) {
         vkDestroyFramebuffer(device_, frameBuffer, nullptr);

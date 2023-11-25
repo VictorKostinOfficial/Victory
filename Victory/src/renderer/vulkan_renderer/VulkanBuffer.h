@@ -13,6 +13,7 @@ class VulkanBuffer
 public:
     VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
 
+    bool CreateTextureImage();
     bool CreateVertexBuffer();
     bool CreateIndexBuffer();
     bool CreateUniformBuffers(uint32_t maxFrames_);
@@ -41,10 +42,15 @@ public:
 
 private:
 
-    bool CreateBuffer(VkDeviceSize bufferSize_, VkBufferUsageFlags usage_, 
-        VkMemoryPropertyFlags properties, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
+    void CreateImage(uint32_t width_, uint32_t height_, VkFormat format_
+        , VkImageTiling tiling_, VkImageUsageFlags usage_, VkMemoryPropertyFlags properties_
+        , VkImage& image, VkDeviceMemory& imageMemory);
+    bool CreateBuffer(VkDeviceSize bufferSize_, VkBufferUsageFlags usage_
+        , VkMemoryPropertyFlags properties, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
     uint32_t FindMemoryType(uint32_t typeFilter_, VkMemoryPropertyFlags flags_);
     void CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_);
+    void TransitionImageLayout(VkImage image_, VkFormat format_, VkImageLayout oldLayout_, VkImageLayout newLayout_);
+    void CopyBufferToImage(VkBuffer buffer_, VkImage image_, uint32_t width_, uint32_t height_);
 
 private:
 
@@ -57,6 +63,8 @@ private:
     VkDeviceMemory m_VertexBufferMemory{VK_NULL_HANDLE};
     VkBuffer m_IndexBuffer{VK_NULL_HANDLE};
     VkDeviceMemory m_IndexBufferMemory{VK_NULL_HANDLE};
+    VkImage m_TextureImage{VK_NULL_HANDLE};
+    VkDeviceMemory m_TextureImageMemory{VK_NULL_HANDLE};
 
     VkDescriptorPool m_DescriptorPool{VK_NULL_HANDLE};
     std::vector<VkDescriptorSet> m_DescriptorSets;

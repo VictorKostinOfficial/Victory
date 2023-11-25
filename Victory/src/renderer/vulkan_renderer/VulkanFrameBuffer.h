@@ -14,6 +14,8 @@ public:
 
     // TODO: move function to VulkanRenderer
     void RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_, VulkanBuffer& vertexBuffer_);
+    VkCommandBuffer BeginSingleTimeCommands(VkDevice device_);
+    void EndSingleTimeCommands(VkCommandBuffer commandBuffer_, VulkanContext* context_);
 
     void CleanupCommandPool(VkDevice device_);
     void CleanupFrameBuffers(VkDevice device_);
