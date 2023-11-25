@@ -5,7 +5,6 @@
 
 #include "../VertexData.h"
 
-
 namespace VulkanRenderer {
 
 static VkVertexInputBindingDescription GetBindingDescription() {
@@ -17,8 +16,8 @@ static VkVertexInputBindingDescription GetBindingDescription() {
     return bindingDescription;
 }
 
-static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
     attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -28,6 +27,11 @@ static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[1].offset = sizeof(float) * 3;
+
+    attributeDescriptions[2].binding = 0;
+    attributeDescriptions[2].location = 2;
+    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[2].offset = sizeof(float) * 6;
 
     return attributeDescriptions;
 }

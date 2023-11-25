@@ -15,10 +15,10 @@
 #include <stb_image.h>
 
 const std::vector<VertexData> vertices = {
-    {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}}
+    {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.f, 0.f}},
+    {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.f, 0.f}},
+    {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.f, 1.f}},
+    {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.f, 1.f}}
 };
 
 const std::vector<uint16_t> indices = {
@@ -40,7 +40,7 @@ VulkanBuffer::VulkanBuffer(VulkanContext *context_, VulkanPipeline* pipeline_, V
 
 bool VulkanBuffer::CreateTextureImage() {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("pepe.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load("pepe2.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     if (!pixels) {
         return false;
@@ -57,7 +57,7 @@ bool VulkanBuffer::CreateTextureImage() {
 
     void* data;
     vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, vertices.data(), static_cast<size_t>(imageSize));
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(m_Context->GetDevice(), stagingBufferMemory);
 
     stbi_image_free(pixels);
@@ -73,6 +73,50 @@ bool VulkanBuffer::CreateTextureImage() {
     vkDestroyBuffer(m_Context->GetDevice(), stagingBuffer, nullptr);
     vkFreeMemory(m_Context->GetDevice(), stagingBufferMemory, nullptr);
     return true;
+}
+
+bool VulkanBuffer::CreateTextureImageView() {
+    return CreateTextureImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB);
+}
+
+bool VulkanBuffer::CreateTextureImageView(VkImage image_, VkFormat format_) {
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image_;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format_;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    return (vkCreateImageView(m_Context->GetDevice(), &viewInfo, nullptr, &m_TextureImageView) == VK_SUCCESS);
+}
+
+bool VulkanBuffer::CreateTextureSampler() {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(m_Context->GetPhysicalDevice(), &properties);
+
+    VkSamplerCreateInfo samplerCI{};
+    samplerCI.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCI.magFilter = VK_FILTER_LINEAR;
+    samplerCI.minFilter = VK_FILTER_LINEAR;
+    samplerCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCI.anisotropyEnable = VK_TRUE;
+    samplerCI.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    samplerCI.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerCI.unnormalizedCoordinates = VK_FALSE;
+    samplerCI.compareEnable = VK_FALSE;
+    samplerCI.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCI.mipLodBias = 0.f;
+    samplerCI.minLod = 0.f;
+    samplerCI.maxLod = 0.f;
+
+    return (vkCreateSampler(m_Context->GetDevice(), &samplerCI, nullptr, &m_Sampler) == VK_SUCCESS);
 }
 
 void VulkanBuffer::CreateImage(uint32_t width_, uint32_t height_, VkFormat format_
@@ -183,14 +227,16 @@ bool VulkanBuffer::CreateUniformBuffers(uint32_t maxFrames_) {
 }
 
 bool VulkanBuffer::CreateDescriptorPool(uint32_t maxFrames_) {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(maxFrames_);
+    std::array<VkDescriptorPoolSize, 2> poolSize{};
+    poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize[0].descriptorCount = static_cast<uint32_t>(maxFrames_);
+    poolSize[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize[1].descriptorCount = static_cast<uint32_t>(maxFrames_);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSize.size());
+    poolInfo.pPoolSizes = poolSize.data();
     poolInfo.maxSets = static_cast<uint32_t>(maxFrames_);
 
     return vkCreateDescriptorPool(m_Context->GetDevice(), &poolInfo, nullptr, &m_DescriptorPool) == VK_SUCCESS;
@@ -215,18 +261,32 @@ bool VulkanBuffer::CreateDescriptorSets(uint32_t maxFrames_) {
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = m_DescriptorSets[i];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
-        descriptorWrite.pImageInfo = nullptr;
-        descriptorWrite.pTexelBufferView = nullptr;
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = m_TextureImageView;
+        imageInfo.sampler = m_Sampler;
 
-        vkUpdateDescriptorSets(m_Context->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = m_DescriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pImageInfo = nullptr;
+        descriptorWrites[0].pTexelBufferView = nullptr;
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = m_DescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(m_Context->GetDevice(), static_cast<uint32_t>(descriptorWrites.size())
+            , descriptorWrites.data(), 0, nullptr);
     }
     return true;
 }
@@ -275,9 +335,16 @@ void VulkanBuffer::UpdateUniformBuffer(uint32_t imageIndex_) {
     memcpy(m_UniformBuffersMapped[imageIndex_], &ubo, sizeof(ubo));
 }
 
-void VulkanBuffer::FreeMemory() {
-    // TODO: split this function
+void VulkanBuffer::CleanupTextrueSampler() {
+    vkDestroySampler(m_Context->GetDevice(), m_Sampler, nullptr);
+    vkDestroyImageView(m_Context->GetDevice(), m_TextureImageView, nullptr);
+    vkDestroyImage(m_Context->GetDevice(), m_TextureImage, nullptr);
     vkFreeMemory(m_Context->GetDevice(), m_TextureImageMemory, nullptr);
+}
+
+void VulkanBuffer::FreeMemory()
+{
+    // TODO: split this function
     for (auto&& memory : m_UniformBuffersMemory) {
         vkFreeMemory(m_Context->GetDevice(), memory, nullptr);
     }
@@ -287,7 +354,6 @@ void VulkanBuffer::FreeMemory() {
 
 void VulkanBuffer::CleanupVertexBuffer() {
     // TODO: split this function
-    vkDestroyImage(m_Context->GetDevice(), m_TextureImage, nullptr);
     for (auto&& buffer : m_UniformBuffers) {
         vkDestroyBuffer(m_Context->GetDevice(), buffer, nullptr);
     }
@@ -296,6 +362,7 @@ void VulkanBuffer::CleanupVertexBuffer() {
 }
 
 void VulkanBuffer::CleanupAll() {
+    CleanupTextrueSampler();
     vkDestroyDescriptorPool(m_Context->GetDevice(), m_DescriptorPool, nullptr);
     CleanupVertexBuffer();
     FreeMemory();

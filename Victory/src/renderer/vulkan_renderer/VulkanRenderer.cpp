@@ -82,6 +82,12 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
         "Texture image was not created");
 
+    CHK_RESULT(m_VulkanBuffer->CreateTextureImageView(), 
+        "Texture image view was not created");
+
+    CHK_RESULT(m_VulkanBuffer->CreateTextureSampler(), 
+        "Texture sampler view was not created");
+
     CHK_RESULT(m_VulkanBuffer->CreateVertexBuffer(),
         "Vertex buffer was not created");
 

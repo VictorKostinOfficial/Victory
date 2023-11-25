@@ -81,6 +81,7 @@ bool VulkanContext::CreateLogicalDevice() {
 
     std::vector<const char*> layers{};
     VkPhysicalDeviceFeatures features{};
+    features.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo deviceCI{};
     deviceCI.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -157,10 +158,6 @@ VkInstance VulkanContext::GetInstance() {
     return m_Instance;
 }
 
-VkPhysicalDevice VulkanContext::GetPhysicalDevice() {
-    return m_PhysicalDevice;
-}
-
 VkQueue VulkanContext::GetQueue(QueueIndex queue_) {
     VkQueue queue;
     uint32_t index = m_QueueIndexes.GetQueueIndex(queue_);
@@ -198,7 +195,7 @@ uint32_t VulkanContext::RateDeviceSuitability(VkPhysicalDevice phDevice_) {
     VkPhysicalDeviceFeatures features;
     vkGetPhysicalDeviceFeatures(phDevice_, &features);
 
-    if (features.geometryShader != VK_TRUE) {
+    if (features.geometryShader != VK_TRUE || features.samplerAnisotropy != VK_TRUE) {
         return 0;
     }
 

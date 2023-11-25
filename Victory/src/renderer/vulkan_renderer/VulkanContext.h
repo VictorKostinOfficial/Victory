@@ -26,7 +26,10 @@ public:
         return m_Device;
     }
 
-    VkPhysicalDevice GetPhysicalDevice();
+    inline VkPhysicalDevice GetPhysicalDevice() {
+        return m_PhysicalDevice;
+    }
+
     VkQueue GetQueue(QueueIndex queue_);
     QueueIndexes& GetQueueIndexes();
 

@@ -14,6 +14,10 @@ public:
     VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
 
     bool CreateTextureImage();
+    bool CreateTextureImageView();
+    bool CreateTextureImageView(VkImage image_, VkFormat format_);
+    bool CreateTextureSampler();
+
     bool CreateVertexBuffer();
     bool CreateIndexBuffer();
     bool CreateUniformBuffers(uint32_t maxFrames_);
@@ -22,6 +26,7 @@ public:
 
     void UpdateUniformBuffer(uint32_t imageIndex_);
 
+    void CleanupTextrueSampler();
     void FreeMemory();
     void CleanupVertexBuffer();
     void CleanupAll();
@@ -63,7 +68,10 @@ private:
     VkDeviceMemory m_VertexBufferMemory{VK_NULL_HANDLE};
     VkBuffer m_IndexBuffer{VK_NULL_HANDLE};
     VkDeviceMemory m_IndexBufferMemory{VK_NULL_HANDLE};
+
     VkImage m_TextureImage{VK_NULL_HANDLE};
+    VkImageView m_TextureImageView{VK_NULL_HANDLE};
+    VkSampler m_Sampler{VK_NULL_HANDLE};
     VkDeviceMemory m_TextureImageMemory{VK_NULL_HANDLE};
 
     VkDescriptorPool m_DescriptorPool{VK_NULL_HANDLE};
