@@ -171,7 +171,7 @@ void VulkanRenderer::BeginFrame() {
 
     vkResetFences(device, 1, &m_InFlightFences[m_CurrentFrame]);
 
-    m_VulkanBuffer->UpdateUniformBuffer(imageIndex);
+    m_VulkanBuffer->UpdateUniformBuffer(m_CurrentFrame);
 
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer.GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);

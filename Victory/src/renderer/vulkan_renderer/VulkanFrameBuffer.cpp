@@ -91,7 +91,7 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &rect);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipelineLayout(), 0, 1, &vertexBuffer_.GetDescriptorSet(imageIndex_), 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipelineLayout(), 0, 1, &vertexBuffer_.GetDescriptorSet(commandBufferIndex_), 0, nullptr);
 
         vkCmdDrawIndexed(commandBuffer, vertexBuffer_.GetIndicesCount(), 1, 0, 0, 0);
 
