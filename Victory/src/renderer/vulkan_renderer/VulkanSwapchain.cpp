@@ -82,9 +82,17 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext& context_, GLFWwindow* windo
 }
 
 bool VulkanSwapchain::CreateImageViews(VulkanContext& context_) {
-    VkDevice device = context_.GetDevice();
-
     m_ImageViews.resize(m_Images.size());
+    for (size_t i{0}, n = m_Images.size(); i < n ; ++i) {
+        if (!CreateImageView(context_, m_Images[i], m_SurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, m_ImageViews[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool VulkanSwapchain::CreateImageView(VulkanContext &context_, VkImage imgage_, 
+    VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageView& imageView_) {
     VkImageViewCreateInfo imageViewCI{};
     imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -92,21 +100,16 @@ bool VulkanSwapchain::CreateImageViews(VulkanContext& context_) {
     imageViewCI.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewCI.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewCI.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     imageViewCI.subresourceRange.baseArrayLayer = 0;
     imageViewCI.subresourceRange.levelCount = 1;
     imageViewCI.subresourceRange.baseArrayLayer = 0;
     imageViewCI.subresourceRange.layerCount = 1;
-    for (size_t i{0}, n = m_Images.size(); i < n; ++i) {
-        imageViewCI.image = m_Images[i];
-        imageViewCI.format = m_SurfaceFormat.format;
 
-        if (vkCreateImageView(device, &imageViewCI, nullptr, &m_ImageViews[i]) != VK_SUCCESS) {
-            printf("\nImage view with index %lu was not created!", i);
-            return false;
-        }
-    }
-    return true;
+    imageViewCI.image = imgage_;
+    imageViewCI.format = format_;
+    imageViewCI.subresourceRange.aspectMask = aspectFlags_;
+
+    return (vkCreateImageView(context_.GetDevice(), &imageViewCI, nullptr, &imageView_) == VK_SUCCESS);
 }
 
 void VulkanSwapchain::CleanupImageViews(VkDevice device_) {

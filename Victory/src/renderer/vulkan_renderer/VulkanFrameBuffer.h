@@ -8,7 +8,7 @@
 class VulkanFrameBuffer {
 public:
 
-    bool CreateFrameBuffers(VulkanContext& context_, VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_);
+    bool CreateFrameBuffers(VulkanContext& context_, VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, VulkanBuffer& buffer_);
     bool CreateCommandPool(VulkanContext& context_);
     bool CreateCommandBuffer(VkDevice device_, uint32_t commandBufferCount_);
 

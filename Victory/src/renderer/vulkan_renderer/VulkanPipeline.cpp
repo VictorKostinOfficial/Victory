@@ -3,7 +3,7 @@
 #include "../../Utils.h"
 #include "VulkanVertexData.h"
 
-bool VulkanPipeline::CreateRenderPass(VkDevice device_, VkFormat format_) {
+bool VulkanPipeline::CreateRenderPass(VkPhysicalDevice phDevice_, VkDevice device_, VkFormat format_) {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = format_;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -18,29 +18,46 @@ bool VulkanPipeline::CreateRenderPass(VkDevice device_, VkFormat format_) {
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = FindDepthFormat(phDevice_);
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
     // The index of the attachment in this array is directly referenced from the 
     // fragment shader with the layout(location = 0) out vec4 outColor directive!
 
-    VkSubpassDependency dependecy{};
-    dependecy.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependecy.dstSubpass = 0;
-    dependecy.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependecy.srcAccessMask = VK_ACCESS_NONE;
-    dependecy.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependecy.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    std::array<VkAttachmentDescription, 2> attachmets{colorAttachment, depthAttachment};
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo renderPassCI{};
     renderPassCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassCI.attachmentCount = 1;
-    renderPassCI.pAttachments = &colorAttachment;
+    renderPassCI.attachmentCount = static_cast<uint32_t>(attachmets.size());
+    renderPassCI.pAttachments = attachmets.data();
     renderPassCI.subpassCount = 1;
     renderPassCI.pSubpasses = &subpass;
     renderPassCI.dependencyCount = 1;
-    renderPassCI.pDependencies = &dependecy;
+    renderPassCI.pDependencies = &dependency;
 
     return vkCreateRenderPass(device_, &renderPassCI, nullptr, &m_RenderPass) == VK_SUCCESS;
 }
@@ -177,6 +194,11 @@ bool VulkanPipeline::CreatePipeline(VulkanContext &context_) {
 
     VkPipelineDepthStencilStateCreateInfo depthStencilStateCI{};
     depthStencilStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilStateCI.depthTestEnable = VK_TRUE;
+    depthStencilStateCI.depthWriteEnable = VK_TRUE;
+    depthStencilStateCI.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilStateCI.depthBoundsTestEnable = VK_FALSE;
+    depthStencilStateCI.stencilTestEnable = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState colorBlendAttachmentState{};
     colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT
@@ -287,4 +309,28 @@ bool VulkanPipeline::LoadShader(VkDevice device_, const std::vector<char>&buffer
     shaderModuleCI.pCode = reinterpret_cast<const uint32_t*>(buffer_.data());
 
     return vkCreateShaderModule(device_, &shaderModuleCI, nullptr, shaderModule_) == VK_SUCCESS;
+}
+
+VkFormat VulkanPipeline::FindSupportedFormat(VkPhysicalDevice phDevice_, const std::vector<VkFormat>& candidates_, VkImageTiling tiling_, VkFormatFeatureFlags features_) {
+    for (auto&& format : candidates_) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(phDevice_, format, &props);
+
+        if (tiling_ == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features_) == features_) {
+            return format;
+        }
+
+        if (tiling_ == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features_) == features_) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("Filed to find supported formt!");
+}
+
+VkFormat VulkanPipeline::FindDepthFormat(VkPhysicalDevice phDevice_) {
+    return FindSupportedFormat(phDevice_,
+        {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }

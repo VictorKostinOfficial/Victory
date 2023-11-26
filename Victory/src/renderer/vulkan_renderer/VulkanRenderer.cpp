@@ -59,7 +59,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanSwapchain.CreateImageViews(m_VulkanContext), 
         "Image views were not created!");
 
-    CHK_RESULT(m_VulkanPipeline.CreateRenderPass(m_VulkanContext.GetDevice(), m_VulkanSwapchain.GetSurfaceFormat().format),
+    CHK_RESULT(m_VulkanPipeline.CreateRenderPass(m_VulkanContext.GetPhysicalDevice(), m_VulkanContext.GetDevice(), m_VulkanSwapchain.GetSurfaceFormat().format),
         "Render pass was not created!");
 
     CHK_RESULT(m_VulkanPipeline.CreateDescriptorSetLayout(m_VulkanContext.GetDevice()),
@@ -71,13 +71,16 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanPipeline.CreatePipeline(m_VulkanContext),
         "Pipeline was not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline),
+    m_VulkanBuffer = new VulkanBuffer(&m_VulkanContext, &m_VulkanPipeline, &m_VulkanFrameBuffer, &m_VulkanSwapchain);
+
+    CHK_RESULT(m_VulkanBuffer->CreateDepthResources(),
+        "Depth resources were not created");
+
+    CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline, *m_VulkanBuffer),
         "Frame buffers were not created!");
 
     CHK_RESULT(m_VulkanFrameBuffer.CreateCommandPool(m_VulkanContext),
         "Command pool was not created!");
-
-    m_VulkanBuffer = new VulkanBuffer(&m_VulkanContext, &m_VulkanPipeline, &m_VulkanFrameBuffer, &m_VulkanSwapchain);
 
     CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
         "Texture image was not created");
@@ -147,6 +150,7 @@ void VulkanRenderer::Resize() {
 
     m_VulkanSwapchain.CleanupSwapchain(device);
     m_VulkanSwapchain.CleanupImageViews(device);
+    m_VulkanBuffer->CleanupDepthResources();
     m_VulkanFrameBuffer.CleanupFrameBuffers(device);
 
     CHK_RESULT(m_VulkanSwapchain.CreateSwapchain(m_VulkanContext, m_Window),
@@ -155,7 +159,10 @@ void VulkanRenderer::Resize() {
     CHK_RESULT(m_VulkanSwapchain.CreateImageViews(m_VulkanContext), 
         "Image views were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline),
+    CHK_RESULT(m_VulkanBuffer->CreateDepthResources(), 
+        "Depth Resources were not created!");
+
+    CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline, *m_VulkanBuffer),
         "Frame buffers were not created!");
 }
 

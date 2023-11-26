@@ -5,13 +5,19 @@
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
 
+class VulkanBuffer;
+
 class VulkanPipeline {
 public:
 
-    bool CreateRenderPass(VkDevice device_, VkFormat format_);
+    bool CreateRenderPass(VkPhysicalDevice phDevice, VkDevice device_, VkFormat format_);
     bool CreateDescriptorSetLayout(VkDevice device_);
     bool CreatePipelineLayout(VkDevice device_);
     bool CreatePipeline(VulkanContext& context_);
+
+    VkFormat FindSupportedFormat(VkPhysicalDevice phDevice_, const std::vector<VkFormat>& candidates_, 
+        VkImageTiling tiling_, VkFormatFeatureFlags features_);
+    VkFormat FindDepthFormat(VkPhysicalDevice phDevice_);
 
     void CleanupPipeline(VkDevice device_);
     void CleanupPipelineLayout(VkDevice device_);

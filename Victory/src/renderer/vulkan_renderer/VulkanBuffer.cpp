@@ -8,6 +8,7 @@
 #include "VulkanFrameBuffer.h"
 #include "VulkanPipeline.h"
 
+// #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -18,11 +19,17 @@ const std::vector<VertexData> vertices = {
     {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.f, 0.f}},
     {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.f, 0.f}},
     {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.f, 1.f}},
-    {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.f, 1.f}}
+    {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.f, 1.f}},
+
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
 };
 
 const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0
+    0, 1, 2, 2, 3, 0,
+    4, 5, 6, 6, 7, 4
 };
 
 struct UniformBufferObject {
@@ -36,6 +43,22 @@ VulkanBuffer::VulkanBuffer(VulkanContext *context_, VulkanPipeline* pipeline_, V
     , m_Pipeline{pipeline_}
     , m_FrameBuffer{frameBuffer_}
     , m_Swapchain{swapchain_} {
+}
+
+bool VulkanBuffer::CreateDepthResources() {
+    VkFormat depthFormat = FindDepthFormat();
+
+    CreateImage(
+        m_Swapchain->GetExtent().width, 
+        m_Swapchain->GetExtent().height, 
+        depthFormat, 
+        VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        m_DepthImage, m_DepthImageMemory);
+    
+    m_Swapchain->CreateImageView(*m_Context, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, m_DepthImageView);
+    return true;
 }
 
 bool VulkanBuffer::CreateTextureImage() {
@@ -80,18 +103,7 @@ bool VulkanBuffer::CreateTextureImageView() {
 }
 
 bool VulkanBuffer::CreateTextureImageView(VkImage image_, VkFormat format_) {
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image_;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = format_;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    return (vkCreateImageView(m_Context->GetDevice(), &viewInfo, nullptr, &m_TextureImageView) == VK_SUCCESS);
+    return m_Swapchain->CreateImageView(*m_Context, image_, format_, VK_IMAGE_ASPECT_COLOR_BIT, m_TextureImageView);
 }
 
 bool VulkanBuffer::CreateTextureSampler() {
@@ -335,7 +347,14 @@ void VulkanBuffer::UpdateUniformBuffer(uint32_t imageIndex_) {
     memcpy(m_UniformBuffersMapped[imageIndex_], &ubo, sizeof(ubo));
 }
 
-void VulkanBuffer::CleanupTextrueSampler() {
+void VulkanBuffer::CleanupDepthResources() {
+    vkDestroyImageView(m_Context->GetDevice(), m_DepthImageView, nullptr);
+    vkDestroyImage(m_Context->GetDevice(), m_DepthImage, nullptr);
+    vkFreeMemory(m_Context->GetDevice(), m_DepthImageMemory, nullptr);
+}
+
+void VulkanBuffer::CleanupTextrueSampler()
+{
     vkDestroySampler(m_Context->GetDevice(), m_Sampler, nullptr);
     vkDestroyImageView(m_Context->GetDevice(), m_TextureImageView, nullptr);
     vkDestroyImage(m_Context->GetDevice(), m_TextureImage, nullptr);
@@ -362,6 +381,7 @@ void VulkanBuffer::CleanupVertexBuffer() {
 }
 
 void VulkanBuffer::CleanupAll() {
+    CleanupDepthResources();
     CleanupTextrueSampler();
     vkDestroyDescriptorPool(m_Context->GetDevice(), m_DescriptorPool, nullptr);
     CleanupVertexBuffer();
@@ -479,4 +499,32 @@ void VulkanBuffer::CopyBufferToImage(VkBuffer buffer_, VkImage image_, uint32_t 
         );
     }
     m_FrameBuffer->EndSingleTimeCommands(commandBuffer, m_Context);
+}
+
+VkFormat VulkanBuffer::FindSupportedFormat(const std::vector<VkFormat>& candidates_, VkImageTiling tiling_, VkFormatFeatureFlags features_) {
+    for (auto&& format : candidates_) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(m_Context->GetPhysicalDevice(), format, &props);
+
+        if (tiling_ == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features_) == features_) {
+            return format;
+        }
+
+        if (tiling_ == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features_) == features_) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("Filed to find supported formt!");
+}
+
+bool VulkanBuffer::HasStencilComponent(VkFormat format_) {
+    return format_ == VK_FORMAT_D32_SFLOAT_S8_UINT || format_ == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+VkFormat VulkanBuffer::FindDepthFormat() {
+    return FindSupportedFormat(
+        {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }

@@ -12,6 +12,8 @@ public:
     bool CreateSurface(VkInstance instance_, GLFWwindow* window_);
     bool CreateSwapchain(VulkanContext& context_, GLFWwindow* window_);
     bool CreateImageViews(VulkanContext& context_);
+    bool CreateImageView(VulkanContext& context_, VkImage imgage_, 
+        VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
 
     void CleanupImageViews(VkDevice device_);
     void CleanupSwapchain(VkDevice device_);

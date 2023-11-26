@@ -1,6 +1,8 @@
 #include "VulkanFrameBuffer.h"
 
-bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_, VulkanSwapchain &swapchain_, VulkanPipeline &pipeline_) {
+bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_, 
+    VulkanSwapchain &swapchain_, VulkanPipeline &pipeline_,
+    VulkanBuffer& buffer_) {
     VkFramebufferCreateInfo frameBufferCI{};
     frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCI.renderPass = pipeline_.GetRenderPass();
@@ -13,8 +15,9 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_, VulkanSwapch
     auto&& imageViews = swapchain_.GetImageViews();
     m_FrameBuffers.resize(imageViews.size());
     for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
-        frameBufferCI.attachmentCount = 1;
-        frameBufferCI.pAttachments = &imageViews[i];
+        std::array<VkImageView, 2> attachmetns{imageViews[i], buffer_.GetDepthImageView()};
+        frameBufferCI.attachmentCount = static_cast<uint32_t>(attachmetns.size());
+        frameBufferCI.pAttachments = attachmetns.data();
 
         if (vkCreateFramebuffer(device, &frameBufferCI, nullptr, &m_FrameBuffers[i]) != VK_SUCCESS) {
             printf("\nFrame buffer %zu, was not created!", i);
@@ -57,16 +60,17 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
     rect.offset = {0, 0};
     rect.extent = swapchain_.GetExtent();
 
-    VkClearColorValue clearColorValue{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f};
-    VkClearValue clearValue{clearColorValue};
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f}};
+    clearValues[1].depthStencil = {1.f, 0};
 
     VkRenderPassBeginInfo renderPassBI{};
     renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBI.renderPass = pipeline_.GetRenderPass();
     renderPassBI.framebuffer = m_FrameBuffers[imageIndex_];
     renderPassBI.renderArea = rect;
-    renderPassBI.clearValueCount = 1;
-    renderPassBI.pClearValues = &clearValue;
+    renderPassBI.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassBI.pClearValues = clearValues.data();
 
     // TODO: split function begin/end
     vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
