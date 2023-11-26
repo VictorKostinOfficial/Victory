@@ -11,7 +11,8 @@ class VulkanPipeline;
 class VulkanBuffer
 {
 public:
-    VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
+    VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, 
+        VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
 
     bool CreateDepthResources();
 

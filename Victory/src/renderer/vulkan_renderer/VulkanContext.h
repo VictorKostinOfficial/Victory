@@ -20,9 +20,11 @@ public:
     void CleanupInstance();
     void CleanupAll();
 
-    VkInstance GetInstance();
+    inline VkInstance GetInstance() const {
+        return m_Instance;
+    }
 
-    inline VkDevice GetDevice() {
+    inline VkDevice GetDevice() const {
         return m_Device;
     }
 
@@ -31,7 +33,10 @@ public:
     }
 
     VkQueue GetQueue(QueueIndex queue_);
-    QueueIndexes& GetQueueIndexes();
+
+    inline QueueIndexes& GetQueueIndexes() {
+        return m_QueueIndexes;
+    }
 
 private:
 

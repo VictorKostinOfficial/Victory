@@ -154,19 +154,11 @@ void VulkanContext::CleanupAll() {
     CleanupInstance();
 }
 
-VkInstance VulkanContext::GetInstance() {
-    return m_Instance;
-}
-
 VkQueue VulkanContext::GetQueue(QueueIndex queue_) {
     VkQueue queue;
     uint32_t index = m_QueueIndexes.GetQueueIndex(queue_);
     vkGetDeviceQueue(m_Device, index, 0, &queue);
     return queue;
-}
-
-QueueIndexes& VulkanContext::GetQueueIndexes() {
-    return m_QueueIndexes;
 }
 
 //----------------------------------------------------------------------

@@ -1,12 +1,13 @@
 #include "VulkanBuffer.h"
 #include "../VertexData.h"
 
-#include <vector>
 #include <cstring>
 #include <chrono>
 
-#include "VulkanFrameBuffer.h"
+#include "VulkanContext.h"
+#include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
+#include "VulkanFrameBuffer.h"
 
 // #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/ext/matrix_float4x4.hpp>
@@ -57,7 +58,7 @@ bool VulkanBuffer::CreateDepthResources() {
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         m_DepthImage, m_DepthImageMemory);
     
-    m_Swapchain->CreateImageView(*m_Context, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, m_DepthImageView);
+    m_Swapchain->CreateImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, m_DepthImageView);
     return true;
 }
 
@@ -103,7 +104,7 @@ bool VulkanBuffer::CreateTextureImageView() {
 }
 
 bool VulkanBuffer::CreateTextureImageView(VkImage image_, VkFormat format_) {
-    return m_Swapchain->CreateImageView(*m_Context, image_, format_, VK_IMAGE_ASPECT_COLOR_BIT, m_TextureImageView);
+    return m_Swapchain->CreateImageView(image_, format_, VK_IMAGE_ASPECT_COLOR_BIT, m_TextureImageView);
 }
 
 bool VulkanBuffer::CreateTextureSampler() {
@@ -406,7 +407,7 @@ uint32_t VulkanBuffer::FindMemoryType(uint32_t typeFilter_, VkMemoryPropertyFlag
 }
 
 void VulkanBuffer::CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_) {
-    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands(m_Context->GetDevice());
+    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands();
     {
         VkBufferCopy copyRegion{};
         copyRegion.srcOffset = 0;
@@ -415,13 +416,13 @@ void VulkanBuffer::CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDevice
 
         vkCmdCopyBuffer(commandBuffer, srcBuffer_, dstBuffer_, 1, &copyRegion);
     }
-    m_FrameBuffer->EndSingleTimeCommands(commandBuffer, m_Context);
+    m_FrameBuffer->EndSingleTimeCommands(commandBuffer);
 }
 
 void VulkanBuffer::TransitionImageLayout(VkImage image_, VkFormat format_
     , VkImageLayout oldLayout_, VkImageLayout newLayout_) {
     (void)format_;
-    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands(m_Context->GetDevice());
+    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands();
     {
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -466,11 +467,11 @@ void VulkanBuffer::TransitionImageLayout(VkImage image_, VkFormat format_
             1, &barrier
         );
     }
-    m_FrameBuffer->EndSingleTimeCommands(commandBuffer, m_Context);
+    m_FrameBuffer->EndSingleTimeCommands(commandBuffer);
 }
 
 void VulkanBuffer::CopyBufferToImage(VkBuffer buffer_, VkImage image_, uint32_t width_, uint32_t height_) {
-    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands(m_Context->GetDevice());
+    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands();
     {
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
@@ -498,7 +499,7 @@ void VulkanBuffer::CopyBufferToImage(VkBuffer buffer_, VkImage image_, uint32_t 
             &region
         );
     }
-    m_FrameBuffer->EndSingleTimeCommands(commandBuffer, m_Context);
+    m_FrameBuffer->EndSingleTimeCommands(commandBuffer);
 }
 
 VkFormat VulkanBuffer::FindSupportedFormat(const std::vector<VkFormat>& candidates_, VkImageTiling tiling_, VkFormatFeatureFlags features_) {

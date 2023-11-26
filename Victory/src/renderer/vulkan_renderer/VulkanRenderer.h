@@ -2,11 +2,13 @@
 
 #include "../Renderer.h"
 
-#include "VulkanContext.h"
-#include "VulkanSwapchain.h"
-#include "VulkanPipeline.h"
-#include "VulkanFrameBuffer.h"
+#include <vulkan/vulkan_core.h>
+#include <vector>
 
+class VulkanContext;
+class VulkanSwapchain;
+class VulkanPipeline;
+class VulkanFrameBuffer;
 class VulkanBuffer;
 
 struct GLFWwindow;
@@ -38,10 +40,10 @@ private:
 
     GLFWwindow* m_Window;
 
-    VulkanContext m_VulkanContext;
-    VulkanSwapchain m_VulkanSwapchain;
-    VulkanPipeline m_VulkanPipeline;
-    VulkanFrameBuffer m_VulkanFrameBuffer;
+    VulkanContext* m_VulkanContext;
+    VulkanSwapchain* m_VulkanSwapchain;
+    VulkanPipeline* m_VulkanPipeline;
+    VulkanFrameBuffer* m_VulkanFrameBuffer;
     VulkanBuffer* m_VulkanBuffer;
 
     uint32_t m_CurrentFrame{0};

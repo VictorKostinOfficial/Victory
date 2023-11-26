@@ -1,24 +1,26 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <vector>
 
-#include "VulkanContext.h"
-
+class VulkanContext;
 struct GLFWwindow;
 
 class VulkanSwapchain {
 public:
 
-    bool CreateSurface(VkInstance instance_, GLFWwindow* window_);
-    bool CreateSwapchain(VulkanContext& context_, GLFWwindow* window_);
-    bool CreateImageViews(VulkanContext& context_);
-    bool CreateImageView(VulkanContext& context_, VkImage imgage_, 
-        VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
+    VulkanSwapchain(VulkanContext* context_);
 
-    void CleanupImageViews(VkDevice device_);
-    void CleanupSwapchain(VkDevice device_);
-    void CleanupSurface(VkInstance instance_);
-    void CleanupAll(VulkanContext& context_);
+    bool CreateSurface(GLFWwindow* window_);
+    bool CreateSwapchain(GLFWwindow* window_);
+    bool CreateImageViews();
+    bool CreateImageView(VkImage imgage_, VkFormat format_, 
+        VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
+
+    void CleanupImageViews();
+    void CleanupSwapchain();
+    void CleanupSurface();
+    void CleanupAll();
 
     VkSurfaceKHR GetSurface() const;
     VkSwapchainKHR GetSwapchain() const;
@@ -29,10 +31,12 @@ public:
 private:
 
     void ChooseSwapchainExtent(VkSurfaceCapabilitiesKHR capabilities_, GLFWwindow* window_);
-    bool ChooseSwapchainSurfaceFormat(VkPhysicalDevice phDevice_);
-    bool ChoosePresentationModeFormat(VkPhysicalDevice phDevice_);
+    bool ChooseSwapchainSurfaceFormat();
+    bool ChoosePresentationModeFormat();
 
 private:
+
+    VulkanContext* m_Context;
 
     VkSurfaceKHR m_Surface{VK_NULL_HANDLE};
     VkSwapchainKHR m_Swapchain{VK_NULL_HANDLE};

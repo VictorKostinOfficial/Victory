@@ -2,8 +2,15 @@
 
 #include <GLFW/glfw3.h>
 
-bool VulkanSwapchain::CreateSurface(VkInstance instance_, GLFWwindow* window_) {
-    if (glfwCreateWindowSurface(instance_, window_, nullptr, &m_Surface) != VK_SUCCESS) {
+#include "VulkanContext.h"
+
+VulkanSwapchain::VulkanSwapchain(VulkanContext* context_)
+    : m_Context{context_} {
+}
+
+bool VulkanSwapchain::CreateSurface(GLFWwindow *window_)
+{
+    if (glfwCreateWindowSurface(m_Context->GetInstance(), window_, nullptr, &m_Surface) != VK_SUCCESS) {
         glfwDestroyWindow(window_);
         glfwTerminate();
         return false;
@@ -12,17 +19,15 @@ bool VulkanSwapchain::CreateSurface(VkInstance instance_, GLFWwindow* window_) {
     return true;
 }
 
-bool VulkanSwapchain::CreateSwapchain(VulkanContext& context_, GLFWwindow* window_) {
-    VkPhysicalDevice phDevice = context_.GetPhysicalDevice();
-
+bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
     VkSurfaceCapabilitiesKHR capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phDevice, m_Surface, &capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_Context->GetPhysicalDevice(), m_Surface, &capabilities);
 
     ChooseSwapchainExtent(capabilities, window_);
-    if (!ChooseSwapchainSurfaceFormat(phDevice)) {
+    if (!ChooseSwapchainSurfaceFormat()) {
         return false;
     }
-    if (!ChoosePresentationModeFormat(phDevice)) {
+    if (!ChoosePresentationModeFormat()) {
         return false;
     }
 
@@ -45,7 +50,7 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext& context_, GLFWwindow* windo
     swapchainCI.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // If i want postprocess need value like VK_IMAGE_USAGE_TRANSFER_DST_BIT
     
     // TODO: Comiute and Transfer queue family?
-    QueueIndexes queueIndexes = context_.GetQueueIndexes();
+    QueueIndexes queueIndexes = m_Context->GetQueueIndexes();
     std::vector<uint32_t> queueFamilyIndexes{
         queueIndexes.GetQueueIndex(QueueIndex::eGraphics), 
         queueIndexes.GetQueueIndex(QueueIndex::ePresent)
@@ -67,7 +72,7 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext& context_, GLFWwindow* windo
     swapchainCI.clipped = VK_TRUE;
     swapchainCI.oldSwapchain = VK_NULL_HANDLE;
 
-    VkDevice device = context_.GetDevice();
+    auto&& device = m_Context->GetDevice();
     if (vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &m_Swapchain) != VK_SUCCESS) {
         return false;
     }
@@ -81,18 +86,19 @@ bool VulkanSwapchain::CreateSwapchain(VulkanContext& context_, GLFWwindow* windo
     return true;
 }
 
-bool VulkanSwapchain::CreateImageViews(VulkanContext& context_) {
+bool VulkanSwapchain::CreateImageViews() {
     m_ImageViews.resize(m_Images.size());
     for (size_t i{0}, n = m_Images.size(); i < n ; ++i) {
-        if (!CreateImageView(context_, m_Images[i], m_SurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, m_ImageViews[i])) {
+        if (!CreateImageView(m_Images[i], m_SurfaceFormat.format, 
+            VK_IMAGE_ASPECT_COLOR_BIT, m_ImageViews[i])) {
             return false;
         }
     }
     return true;
 }
 
-bool VulkanSwapchain::CreateImageView(VulkanContext &context_, VkImage imgage_, 
-    VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageView& imageView_) {
+bool VulkanSwapchain::CreateImageView(VkImage imgage_, VkFormat format_, 
+    VkImageAspectFlags aspectFlags_, VkImageView& imageView_) {
     VkImageViewCreateInfo imageViewCI{};
     imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -109,27 +115,28 @@ bool VulkanSwapchain::CreateImageView(VulkanContext &context_, VkImage imgage_,
     imageViewCI.format = format_;
     imageViewCI.subresourceRange.aspectMask = aspectFlags_;
 
-    return (vkCreateImageView(context_.GetDevice(), &imageViewCI, nullptr, &imageView_) == VK_SUCCESS);
+    return (vkCreateImageView(m_Context->GetDevice(), &imageViewCI, nullptr, &imageView_) == VK_SUCCESS);
 }
 
-void VulkanSwapchain::CleanupImageViews(VkDevice device_) {
+void VulkanSwapchain::CleanupImageViews() {
+    auto&& device = m_Context->GetDevice();
     for (auto&& imageView : m_ImageViews) {
-        vkDestroyImageView(device_, imageView, nullptr);
+        vkDestroyImageView(device, imageView, nullptr);
     }
 }
 
-void VulkanSwapchain::CleanupSwapchain(VkDevice device_) {
-    vkDestroySwapchainKHR(device_, m_Swapchain, nullptr);
+void VulkanSwapchain::CleanupSwapchain() {
+    vkDestroySwapchainKHR(m_Context->GetDevice(), m_Swapchain, nullptr);
 }
 
-void VulkanSwapchain::CleanupSurface(VkInstance instance_) {
-    vkDestroySurfaceKHR(instance_, m_Surface, nullptr);
+void VulkanSwapchain::CleanupSurface() {
+    vkDestroySurfaceKHR(m_Context->GetInstance(), m_Surface, nullptr);
 }
 
-void VulkanSwapchain::CleanupAll(VulkanContext& context_) {
-    CleanupImageViews(context_.GetDevice());
-    CleanupSwapchain(context_.GetDevice());
-    CleanupSurface(context_.GetInstance());
+void VulkanSwapchain::CleanupAll() {
+    CleanupImageViews();
+    CleanupSwapchain();
+    CleanupSurface();
 }
 
 VkSurfaceKHR VulkanSwapchain::GetSurface() const {
@@ -176,9 +183,10 @@ void VulkanSwapchain::ChooseSwapchainExtent(VkSurfaceCapabilitiesKHR capabilitie
     }
 }
 
-bool VulkanSwapchain::ChooseSwapchainSurfaceFormat(VkPhysicalDevice phDevice_) {
+bool VulkanSwapchain::ChooseSwapchainSurfaceFormat() {
     uint32_t surfaceFormatsCount{0};
-    vkGetPhysicalDeviceSurfaceFormatsKHR(phDevice_, m_Surface, &surfaceFormatsCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_Context->GetPhysicalDevice(), 
+        m_Surface, &surfaceFormatsCount, nullptr);
 
     if (surfaceFormatsCount == 0) {
         printf("\nSurface formats count is 0!");
@@ -186,7 +194,8 @@ bool VulkanSwapchain::ChooseSwapchainSurfaceFormat(VkPhysicalDevice phDevice_) {
     }
 
     std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatsCount);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(phDevice_, m_Surface, &surfaceFormatsCount, surfaceFormats.data());
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_Context->GetPhysicalDevice(),
+         m_Surface, &surfaceFormatsCount, surfaceFormats.data());
 
     if (surfaceFormats.empty()) {
         printf("\nSurface formats is empty");
@@ -205,9 +214,10 @@ bool VulkanSwapchain::ChooseSwapchainSurfaceFormat(VkPhysicalDevice phDevice_) {
     return true;
 }
 
-bool VulkanSwapchain::ChoosePresentationModeFormat(VkPhysicalDevice phDevice_) {
+bool VulkanSwapchain::ChoosePresentationModeFormat() {
     uint32_t presentModesCount{0};
-    vkGetPhysicalDeviceSurfacePresentModesKHR(phDevice_, m_Surface, &presentModesCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_Context->GetPhysicalDevice(), 
+        m_Surface, &presentModesCount, nullptr);
 
     if (presentModesCount == 0) {
         printf("\nPresent modes count is 0!");
@@ -215,7 +225,8 @@ bool VulkanSwapchain::ChoosePresentationModeFormat(VkPhysicalDevice phDevice_) {
     }
 
     std::vector<VkPresentModeKHR> presentModes(presentModesCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(phDevice_, m_Surface, &presentModesCount, presentModes.data());
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_Context->GetPhysicalDevice(), 
+        m_Surface, &presentModesCount, presentModes.data());
 
     if (presentModes.empty()) {
         printf("\nPresent modes is empty");

@@ -1,9 +1,16 @@
 #include "VulkanPipeline.h"
 
 #include "../../Utils.h"
+#include "VulkanContext.h"
 #include "VulkanVertexData.h"
 
-bool VulkanPipeline::CreateRenderPass(VkPhysicalDevice phDevice_, VkDevice device_, VkFormat format_) {
+
+VulkanPipeline::VulkanPipeline(VulkanContext* context_) 
+    : m_Context{context_} {
+}
+
+bool VulkanPipeline::CreateRenderPass(VkFormat format_)
+{
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = format_;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -19,7 +26,7 @@ bool VulkanPipeline::CreateRenderPass(VkPhysicalDevice phDevice_, VkDevice devic
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription depthAttachment{};
-    depthAttachment.format = FindDepthFormat(phDevice_);
+    depthAttachment.format = FindDepthFormat();
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -59,10 +66,10 @@ bool VulkanPipeline::CreateRenderPass(VkPhysicalDevice phDevice_, VkDevice devic
     renderPassCI.dependencyCount = 1;
     renderPassCI.pDependencies = &dependency;
 
-    return vkCreateRenderPass(device_, &renderPassCI, nullptr, &m_RenderPass) == VK_SUCCESS;
+    return vkCreateRenderPass(m_Context->GetDevice(), &renderPassCI, nullptr, &m_RenderPass) == VK_SUCCESS;
 }
 
-bool VulkanPipeline::CreateDescriptorSetLayout(VkDevice device_) {
+bool VulkanPipeline::CreateDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -84,10 +91,11 @@ bool VulkanPipeline::CreateDescriptorSetLayout(VkDevice device_) {
     descriptorSetLayoutCI.bindingCount = static_cast<uint32_t>(bindings.size());
     descriptorSetLayoutCI.pBindings = bindings.data();
 
-    return (vkCreateDescriptorSetLayout(device_, &descriptorSetLayoutCI, nullptr, &m_DescriptorSetLayout) == VK_SUCCESS);
+    return (vkCreateDescriptorSetLayout(m_Context->GetDevice(), &descriptorSetLayoutCI, 
+        nullptr, &m_DescriptorSetLayout) == VK_SUCCESS);
 }
 
-bool VulkanPipeline::CreatePipelineLayout(VkDevice device_) {
+bool VulkanPipeline::CreatePipelineLayout() {
     VkPipelineLayoutCreateInfo pipelineLayoutCI{};
     pipelineLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCI.setLayoutCount = 1;
@@ -95,19 +103,18 @@ bool VulkanPipeline::CreatePipelineLayout(VkDevice device_) {
     pipelineLayoutCI.pushConstantRangeCount = 0;
     pipelineLayoutCI.pPushConstantRanges = nullptr;
 
-    return vkCreatePipelineLayout(device_, &pipelineLayoutCI, nullptr, &m_PipelineLayout) == VK_SUCCESS;
+    return vkCreatePipelineLayout(m_Context->GetDevice(), &pipelineLayoutCI, 
+        nullptr, &m_PipelineLayout) == VK_SUCCESS;
 }
 
-bool VulkanPipeline::CreatePipeline(VulkanContext &context_) {
-    VkDevice device = context_.GetDevice();
-
+bool VulkanPipeline::CreatePipeline() {
     std::vector<char> vsBuffer = Utils::ReadFile("triangle.vert.spv");
     std::vector<char> fsBuffer = Utils::ReadFile("triangle.frag.spv");
-    if (LoadShader(device, vsBuffer, &VS) != true) {
+    if (LoadShader(vsBuffer, &VS) != true) {
         printf("\nVertex shader was not loaded!");
         return false;
     }
-    if (LoadShader(device, fsBuffer, &FS) != true) {
+    if (LoadShader(fsBuffer, &FS) != true) {
         printf("\nFragment shader was not loaded!");
         return false;
     }
@@ -253,37 +260,37 @@ bool VulkanPipeline::CreatePipeline(VulkanContext &context_) {
     pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
     pipelineCI.basePipelineIndex = -1;
 
-    return vkCreateGraphicsPipelines(device, nullptr, 1, &pipelineCI, nullptr, &m_Pipeline) == VK_SUCCESS;
+    return vkCreateGraphicsPipelines(m_Context->GetDevice(), nullptr, 1, 
+        &pipelineCI, nullptr, &m_Pipeline) == VK_SUCCESS;
 }
 
-void VulkanPipeline::CleanupPipeline(VkDevice device_) {
-    vkDestroyPipeline(device_, m_Pipeline, nullptr);
+void VulkanPipeline::CleanupPipeline() {
+    vkDestroyPipeline(m_Context->GetDevice(), m_Pipeline, nullptr);
 }
 
-void VulkanPipeline::CleanupPipelineLayout(VkDevice device_) {
-    vkDestroyPipelineLayout(device_, m_PipelineLayout, nullptr);
+void VulkanPipeline::CleanupPipelineLayout() {
+    vkDestroyPipelineLayout(m_Context->GetDevice(), m_PipelineLayout, nullptr);
 }
 
-void VulkanPipeline::CleanupDescriptorSet(VkDevice device_) {
-    vkDestroyDescriptorSetLayout(device_, m_DescriptorSetLayout, nullptr);
+void VulkanPipeline::CleanupDescriptorSet() {
+    vkDestroyDescriptorSetLayout(m_Context->GetDevice(), m_DescriptorSetLayout, nullptr);
 }
 
-void VulkanPipeline::CleanupRenderPass(VkDevice device_) {
-    vkDestroyRenderPass(device_, m_RenderPass, nullptr);
+void VulkanPipeline::CleanupRenderPass() {
+    vkDestroyRenderPass(m_Context->GetDevice(), m_RenderPass, nullptr);
 }
 
-void VulkanPipeline::CleanupShaderModule(VkDevice device_) {
-    vkDestroyShaderModule(device_, FS, nullptr);
-    vkDestroyShaderModule(device_, VS, nullptr);
+void VulkanPipeline::CleanupShaderModule() {
+    vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
+    vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
 }
 
-void VulkanPipeline::CleanupAll(VulkanContext &context_) {
-    VkDevice device = context_.GetDevice();
-    CleanupPipeline(device);
-    CleanupPipelineLayout(device);
-    CleanupDescriptorSet(device);
-    CleanupRenderPass(device);
-    CleanupShaderModule(device);
+void VulkanPipeline::CleanupAll() {
+    CleanupPipeline();
+    CleanupPipelineLayout();
+    CleanupDescriptorSet();
+    CleanupRenderPass();
+    CleanupShaderModule();
 }
 
 VkRenderPass VulkanPipeline::GetRenderPass() const {
@@ -298,7 +305,7 @@ VkPipeline VulkanPipeline::GetPipeline() const {
     return m_Pipeline;
 }
 
-bool VulkanPipeline::LoadShader(VkDevice device_, const std::vector<char>&buffer_, VkShaderModule* shaderModule_) {
+bool VulkanPipeline::LoadShader(const std::vector<char>&buffer_, VkShaderModule* shaderModule_) {
     if (!shaderModule_) {
         return false;
     }
@@ -308,13 +315,15 @@ bool VulkanPipeline::LoadShader(VkDevice device_, const std::vector<char>&buffer
     shaderModuleCI.codeSize = static_cast<uint32_t>(buffer_.size());
     shaderModuleCI.pCode = reinterpret_cast<const uint32_t*>(buffer_.data());
 
-    return vkCreateShaderModule(device_, &shaderModuleCI, nullptr, shaderModule_) == VK_SUCCESS;
+    return vkCreateShaderModule(m_Context->GetDevice(), &shaderModuleCI, 
+        nullptr, shaderModule_) == VK_SUCCESS;
 }
 
-VkFormat VulkanPipeline::FindSupportedFormat(VkPhysicalDevice phDevice_, const std::vector<VkFormat>& candidates_, VkImageTiling tiling_, VkFormatFeatureFlags features_) {
+VkFormat VulkanPipeline::FindSupportedFormat(const std::vector<VkFormat>& candidates_, VkImageTiling tiling_, VkFormatFeatureFlags features_) {
+    auto&& phDevice = m_Context->GetPhysicalDevice();
     for (auto&& format : candidates_) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(phDevice_, format, &props);
+        vkGetPhysicalDeviceFormatProperties(phDevice, format, &props);
 
         if (tiling_ == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features_) == features_) {
             return format;
@@ -328,8 +337,8 @@ VkFormat VulkanPipeline::FindSupportedFormat(VkPhysicalDevice phDevice_, const s
     throw std::runtime_error("Filed to find supported formt!");
 }
 
-VkFormat VulkanPipeline::FindDepthFormat(VkPhysicalDevice phDevice_) {
-    return FindSupportedFormat(phDevice_,
+VkFormat VulkanPipeline::FindDepthFormat() {
+    return FindSupportedFormat(
         {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);

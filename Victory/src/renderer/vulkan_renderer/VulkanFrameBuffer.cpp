@@ -1,21 +1,36 @@
 #include "VulkanFrameBuffer.h"
 
-bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_, 
-    VulkanSwapchain &swapchain_, VulkanPipeline &pipeline_,
-    VulkanBuffer& buffer_) {
+#include "VulkanContext.h"
+#include "VulkanSwapchain.h"
+#include "VulkanPipeline.h"
+#include "VulkanBuffer.h"
+
+VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
+    VulkanPipeline* pipeline_, VulkanBuffer* buffer_) 
+    : m_Context{context_}
+    , m_Swapchain{swapchain_}
+    , m_Pipeline{pipeline_}
+    , m_Buffer{buffer_} {
+}
+
+void VulkanFrameBuffer::SetVulkanBuffer(VulkanBuffer *buffer_) {
+    m_Buffer = buffer_;
+}
+
+bool VulkanFrameBuffer::CreateFrameBuffers() {
     VkFramebufferCreateInfo frameBufferCI{};
     frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    frameBufferCI.renderPass = pipeline_.GetRenderPass();
-    frameBufferCI.width = swapchain_.GetExtent().width;
-    frameBufferCI.height = swapchain_.GetExtent().height;
+    frameBufferCI.renderPass = m_Pipeline->GetRenderPass();
+    frameBufferCI.width = m_Swapchain->GetExtent().width;
+    frameBufferCI.height = m_Swapchain->GetExtent().height;
     frameBufferCI.layers = 1;
 
-    VkDevice device = context_.GetDevice();
-
-    auto&& imageViews = swapchain_.GetImageViews();
+    auto&& device = m_Context->GetDevice();
+    auto&& imageViews = m_Swapchain->GetImageViews();
     m_FrameBuffers.resize(imageViews.size());
+
     for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
-        std::array<VkImageView, 2> attachmetns{imageViews[i], buffer_.GetDepthImageView()};
+        std::array<VkImageView, 2> attachmetns{imageViews[i], m_Buffer->GetDepthImageView()};
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachmetns.size());
         frameBufferCI.pAttachments = attachmetns.data();
 
@@ -28,17 +43,17 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VulkanContext &context_,
     return true;
 }
 
-bool VulkanFrameBuffer::CreateCommandPool(VulkanContext &context_) {
+bool VulkanFrameBuffer::CreateCommandPool()
+{
     VkCommandPoolCreateInfo commandPoolCI{};
     commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandPoolCI.queueFamilyIndex = context_.GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
+    commandPoolCI.queueFamilyIndex = m_Context->GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
 
-    VkDevice device = context_.GetDevice();
-    return vkCreateCommandPool(device, &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
+    return vkCreateCommandPool(m_Context->GetDevice(), &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
 }
 
-bool VulkanFrameBuffer::CreateCommandBuffer(VkDevice device_, uint32_t commandBufferCount_) {
+bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     VkCommandBufferAllocateInfo commandBufferAllocInfo{};
     commandBufferAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     commandBufferAllocInfo.commandPool = m_CommandPool;
@@ -46,10 +61,10 @@ bool VulkanFrameBuffer::CreateCommandBuffer(VkDevice device_, uint32_t commandBu
     commandBufferAllocInfo.commandBufferCount = commandBufferCount_;
 
     m_CommandBuffers.resize(commandBufferCount_);
-    return vkAllocateCommandBuffers(device_, &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
+    return vkAllocateCommandBuffers(m_Context->GetDevice(), &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
 
-void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanPipeline& pipeline_, uint32_t commandBufferIndex_, uint32_t imageIndex_, VulkanBuffer& vertexBuffer_) {
+void VulkanFrameBuffer::RecordCommandBuffer(uint32_t commandBufferIndex_, uint32_t imageIndex_) {
     VkCommandBufferBeginInfo commandBufferBI{};
     commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -58,7 +73,7 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
 
     VkRect2D rect{};
     rect.offset = {0, 0};
-    rect.extent = swapchain_.GetExtent();
+    rect.extent = m_Swapchain->GetExtent();
 
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = {{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f}};
@@ -66,7 +81,7 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
 
     VkRenderPassBeginInfo renderPassBI{};
     renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBI.renderPass = pipeline_.GetRenderPass();
+    renderPassBI.renderPass = m_Pipeline->GetRenderPass();
     renderPassBI.framebuffer = m_FrameBuffers[imageIndex_];
     renderPassBI.renderArea = rect;
     renderPassBI.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -75,10 +90,10 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
     // TODO: split function begin/end
     vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
     {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipeline());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline->GetPipeline());
 
-        std::vector<VkBuffer> vertexBuffers{vertexBuffer_.GetVertexBuffer()};
-        VkBuffer indexBuffer{vertexBuffer_.GetIndexBuffer()};
+        std::vector<VkBuffer> vertexBuffers{m_Buffer->GetVertexBuffer()};
+        VkBuffer indexBuffer{m_Buffer->GetIndexBuffer()};
         std::vector<VkDeviceSize> offsets{0};
 
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
@@ -95,9 +110,10 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &rect);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.GetPipelineLayout(), 0, 1, &vertexBuffer_.GetDescriptorSet(commandBufferIndex_), 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline->GetPipelineLayout(), 
+            0, 1, &m_Buffer->GetDescriptorSet(commandBufferIndex_), 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, vertexBuffer_.GetIndicesCount(), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, m_Buffer->GetIndicesCount(), 1, 0, 0, 0);
 
     }
     vkCmdEndRenderPass(commandBuffer);
@@ -105,7 +121,7 @@ void VulkanFrameBuffer::RecordCommandBuffer(VulkanSwapchain& swapchain_, VulkanP
     vkEndCommandBuffer(commandBuffer);
 }
 
-VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands(VkDevice device_) {
+VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -113,7 +129,7 @@ VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands(VkDevice device_) {
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device_, &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(m_Context->GetDevice(), &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -123,7 +139,7 @@ VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands(VkDevice device_) {
     return commandBuffer;
 }
 
-void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_, VulkanContext* context_) {
+void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_) {
     vkEndCommandBuffer(commandBuffer_);
 
     VkSubmitInfo submitInfo{};
@@ -134,29 +150,24 @@ void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_, Vu
     // TODO: submit via transfer queue, need Transfer Command pool
     // https://vulkan-tutorial.com/Vertex_buffers/Staging_buffer
 
-    VkQueue queue = context_->GetQueue(QueueIndex::eGraphics);
+    VkQueue queue = m_Context->GetQueue(QueueIndex::eGraphics);
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(queue);
 
-    vkFreeCommandBuffers(context_->GetDevice(), m_CommandPool, 1, &commandBuffer_);
+    vkFreeCommandBuffers(m_Context->GetDevice(), m_CommandPool, 1, &commandBuffer_);
 }
 
-void VulkanFrameBuffer::CleanupFrameBuffers(VkDevice device_) {
+void VulkanFrameBuffer::CleanupFrameBuffers() {
     for (auto&& frameBuffer : m_FrameBuffers) {
-        vkDestroyFramebuffer(device_, frameBuffer, nullptr);
+        vkDestroyFramebuffer(m_Context->GetDevice(), frameBuffer, nullptr);
     }
 }
 
-void VulkanFrameBuffer::CleanupCommandPool(VkDevice device_) {
-    vkDestroyCommandPool(device_, m_CommandPool, nullptr);
+void VulkanFrameBuffer::CleanupCommandPool() {
+    vkDestroyCommandPool(m_Context->GetDevice(), m_CommandPool, nullptr);
 }
 
-void VulkanFrameBuffer::CleanupAll(VulkanContext &context_) {
-    VkDevice device = context_.GetDevice();
-    CleanupCommandPool(device);
-    CleanupFrameBuffers(device);
-}
-
-VkCommandBuffer VulkanFrameBuffer::GetCommandBuffer(uint32_t commandBufferIndex) const {
-    return m_CommandBuffers[commandBufferIndex];
+void VulkanFrameBuffer::CleanupAll() {
+    CleanupCommandPool();
+    CleanupFrameBuffers();
 }

@@ -1,6 +1,12 @@
 #include "VulkanRenderer.h"
 
 #include <GLFW/glfw3.h>
+
+#include "VulkanContext.h"
+#include "VulkanSwapchain.h"
+#include "VulkanPipeline.h"
+#include "VulkanBuffer.h"
+#include "VulkanFrameBuffer.h"
 #include "VulkanSynchronization.h"
 
 #define CHK_RESULT(RESULT, MESSAGE) \
@@ -36,50 +42,59 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     glfwSetWindowUserPointer(m_Window, this);
     glfwSetFramebufferSizeCallback(m_Window, FrameBufferResizeCallback);
 
-    CHK_RESULT(m_VulkanContext.CreateInstance(applicationName_), 
+    m_VulkanContext = new VulkanContext();
+
+    CHK_RESULT(m_VulkanContext->CreateInstance(applicationName_), 
         "Insance was not created!");
 
 #ifndef NDEBUG
-    CHK_RESULT(m_VulkanContext.RegisterDebugUtilsMessenger(), 
+    CHK_RESULT(m_VulkanContext->RegisterDebugUtilsMessenger(), 
         "Debug messenger was not created!");
 #endif
 
-    CHK_RESULT(m_VulkanSwapchain.CreateSurface(m_VulkanContext.GetInstance(), m_Window),
+    m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext);
+
+    CHK_RESULT(m_VulkanSwapchain->CreateSurface(m_Window),
         "Surface was not created!");
 
-    CHK_RESULT(m_VulkanContext.PickPhysicalDevice(m_VulkanSwapchain.GetSurface()), 
+    CHK_RESULT(m_VulkanContext->PickPhysicalDevice(m_VulkanSwapchain->GetSurface()), 
         "Physical Device was not picked!");
 
-    CHK_RESULT(m_VulkanContext.CreateLogicalDevice(), 
+    CHK_RESULT(m_VulkanContext->CreateLogicalDevice(), 
         "Logical Device was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain.CreateSwapchain(m_VulkanContext, m_Window),
+    CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain.CreateImageViews(m_VulkanContext), 
+    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
         "Image views were not created!");
 
-    CHK_RESULT(m_VulkanPipeline.CreateRenderPass(m_VulkanContext.GetPhysicalDevice(), m_VulkanContext.GetDevice(), m_VulkanSwapchain.GetSurfaceFormat().format),
+    m_VulkanPipeline = new VulkanPipeline(m_VulkanContext);
+
+    CHK_RESULT(m_VulkanPipeline->CreateRenderPass(m_VulkanSwapchain->GetSurfaceFormat().format),
         "Render pass was not created!");
 
-    CHK_RESULT(m_VulkanPipeline.CreateDescriptorSetLayout(m_VulkanContext.GetDevice()),
+    CHK_RESULT(m_VulkanPipeline->CreateDescriptorSetLayout(),
         "Descriptor set was not created");
     
-    CHK_RESULT(m_VulkanPipeline.CreatePipelineLayout(m_VulkanContext.GetDevice()),
+    CHK_RESULT(m_VulkanPipeline->CreatePipelineLayout(),
         "Pipeline layout was not created!");
 
-    CHK_RESULT(m_VulkanPipeline.CreatePipeline(m_VulkanContext),
+    CHK_RESULT(m_VulkanPipeline->CreatePipeline(),
         "Pipeline was not created!");
 
-    m_VulkanBuffer = new VulkanBuffer(&m_VulkanContext, &m_VulkanPipeline, &m_VulkanFrameBuffer, &m_VulkanSwapchain);
+    // TODO: Get rid of cross ref
+    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline, m_VulkanBuffer);
+    m_VulkanBuffer = new VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain);
+    m_VulkanFrameBuffer->SetVulkanBuffer(m_VulkanBuffer);
 
     CHK_RESULT(m_VulkanBuffer->CreateDepthResources(),
         "Depth resources were not created");
 
-    CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline, *m_VulkanBuffer),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer.CreateCommandPool(m_VulkanContext),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(),
         "Command pool was not created!");
 
     CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
@@ -106,7 +121,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanBuffer->CreateDescriptorSets(MAX_FRAMES_IN_FLIGHT),
         "Descriptor sets was not created");
 
-    CHK_RESULT(m_VulkanFrameBuffer.CreateCommandBuffer(m_VulkanContext.GetDevice(), MAX_FRAMES_IN_FLIGHT),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT),
         "Command buffer was not created!");
 
     m_AvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -114,11 +129,11 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (uint32_t i{0}; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        CHK_RESULT(CreateSemaphore(m_VulkanContext.GetDevice(), &m_AvailableSemaphores[i]),
+        CHK_RESULT(CreateSemaphore(m_VulkanContext->GetDevice(), &m_AvailableSemaphores[i]),
             "Available semaphore was not created!");
-        CHK_RESULT(CreateSemaphore(m_VulkanContext.GetDevice(), &m_FinishedSemaphores[i]),
+        CHK_RESULT(CreateSemaphore(m_VulkanContext->GetDevice(), &m_FinishedSemaphores[i]),
             "Finished semaphore was not created!");
-        CHK_RESULT(CreateFence(m_VulkanContext.GetDevice(), &m_InFlightFences[i]),
+        CHK_RESULT(CreateFence(m_VulkanContext->GetDevice(), &m_InFlightFences[i]),
             "Fence was not created!");
     }
 }
@@ -145,36 +160,36 @@ void VulkanRenderer::Resize() {
         glfwWaitEvents();
     }
 
-    VkDevice device = m_VulkanContext.GetDevice();
+    VkDevice device = m_VulkanContext->GetDevice();
     vkDeviceWaitIdle(device);
 
-    m_VulkanSwapchain.CleanupSwapchain(device);
-    m_VulkanSwapchain.CleanupImageViews(device);
+    m_VulkanSwapchain->CleanupSwapchain();
+    m_VulkanSwapchain->CleanupImageViews();
     m_VulkanBuffer->CleanupDepthResources();
-    m_VulkanFrameBuffer.CleanupFrameBuffers(device);
+    m_VulkanFrameBuffer->CleanupFrameBuffers();
 
-    CHK_RESULT(m_VulkanSwapchain.CreateSwapchain(m_VulkanContext, m_Window),
+    CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain.CreateImageViews(m_VulkanContext), 
+    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
         "Image views were not created!");
 
     CHK_RESULT(m_VulkanBuffer->CreateDepthResources(), 
         "Depth Resources were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer.CreateFrameBuffers(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline, *m_VulkanBuffer),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
 }
 
 void VulkanRenderer::BeginFrame() {
     printf("\nVulkanRenderer::BeginFrame");
 
-    vk::Device device = m_VulkanContext.GetDevice();
+    vk::Device device = m_VulkanContext->GetDevice();
     CHK_RESULT((vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) == VK_SUCCESS),
         "Wait for fences = false!");
 
     uint32_t imageIndex{0};
-    VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain.GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
     if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
         m_IsResized = false;
         Resize();
@@ -189,10 +204,10 @@ void VulkanRenderer::BeginFrame() {
 
     m_VulkanBuffer->UpdateUniformBuffer(m_CurrentFrame);
 
-    VkCommandBuffer commandBuffer = m_VulkanFrameBuffer.GetCommandBuffer(m_CurrentFrame);
+    VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);
 
-    m_VulkanFrameBuffer.RecordCommandBuffer(m_VulkanSwapchain, m_VulkanPipeline, m_CurrentFrame, imageIndex, *m_VulkanBuffer);
+    m_VulkanFrameBuffer->RecordCommandBuffer(m_CurrentFrame, imageIndex);
 
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
@@ -208,11 +223,11 @@ void VulkanRenderer::BeginFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores.data();
 
-    VkQueue graphicsQueue = m_VulkanContext.GetQueue(QueueIndex::eGraphics);
+    VkQueue graphicsQueue = m_VulkanContext->GetQueue(QueueIndex::eGraphics);
     CHK_RESULT((vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) == VK_SUCCESS),
         "Failed to submit draw command buffer!");
 
-    const std::vector<VkSwapchainKHR> swapOld{m_VulkanSwapchain.GetSwapchain()};
+    const std::vector<VkSwapchainKHR> swapOld{m_VulkanSwapchain->GetSwapchain()};
     const std::vector<VkSemaphore> signalOld{m_FinishedSemaphores[m_CurrentFrame]};
 
     VkPresentInfoKHR presentInfo{};
@@ -223,7 +238,7 @@ void VulkanRenderer::BeginFrame() {
     presentInfo.pSwapchains = swapOld.data();
     presentInfo.pImageIndices = &imageIndex;
 
-    VkQueue presentQueue = m_VulkanContext.GetQueue(QueueIndex::ePresent);
+    VkQueue presentQueue = m_VulkanContext->GetQueue(QueueIndex::ePresent);
 
     // TODO: Resize by changing window size
     VkResult presentResult = vkQueuePresentKHR(presentQueue, &presentInfo);
@@ -241,7 +256,7 @@ void VulkanRenderer::EndFrame() {
 }
 
 void VulkanRenderer::Destroy() {
-    VkDevice device = m_VulkanContext.GetDevice();
+    VkDevice device = m_VulkanContext->GetDevice();
 
     vkDeviceWaitIdle(device);
 
@@ -252,10 +267,19 @@ void VulkanRenderer::Destroy() {
     }
 
     m_VulkanBuffer->CleanupAll();
-    m_VulkanFrameBuffer.CleanupAll(m_VulkanContext);
-    m_VulkanPipeline.CleanupAll(m_VulkanContext);
-    m_VulkanSwapchain.CleanupAll(m_VulkanContext);
-    m_VulkanContext.CleanupAll();
+    m_VulkanFrameBuffer->CleanupAll();
+    m_VulkanPipeline->CleanupAll();
+    m_VulkanSwapchain->CleanupAll();
+    m_VulkanContext->CleanupAll();
+
+    glfwDestroyWindow(m_Window);
+    glfwTerminate();
+
+    delete m_VulkanBuffer;
+    delete m_VulkanFrameBuffer;
+    delete m_VulkanPipeline;
+    delete m_VulkanSwapchain;
+    delete m_VulkanContext;
     printf("\nVulkanRenderer::Destroy\n");
 }
 
