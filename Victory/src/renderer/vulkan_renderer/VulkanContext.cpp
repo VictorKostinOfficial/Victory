@@ -1,6 +1,10 @@
+#include <vulkan/vulkan.h>
+#include <vector>
+
 #include "VulkanContext.h"
 
 #include <GLFW/glfw3.h>
+#include <string>
 
 bool VulkanContext::CreateInstance(const char* applicationName_)
 {
@@ -138,7 +142,21 @@ void VulkanContext::CleanupDebugUtilsMessenger() {
 }
 #endif
 
-void VulkanContext::CleanupLogicalDevice() {
+uint32_t VulkanContext::FindMemoryType(const uint32_t typeFilter_, const VkMemoryPropertyFlags flags_) const {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter_ & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & flags_) == flags_) {
+            return i;
+        }
+    }
+
+    return UINT32_MAX;
+}
+
+void VulkanContext::CleanupLogicalDevice()
+{
     vkDestroyDevice(m_Device, nullptr);
 }
 

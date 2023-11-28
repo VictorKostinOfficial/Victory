@@ -29,10 +29,12 @@ void Application::Run() {
     s_Renderer->Initialize(m_ApplicationSpec.Name);
     while (s_Renderer->IsRunning())
     {
-        // s_Renderer->Resize();
         s_Renderer->PollEvents();
-        s_Renderer->BeginFrame();
-        s_Renderer->EndFrame();
+        if (!s_Renderer->Resize()) {
+            s_Renderer->BeginFrame();
+            s_Renderer->RecordCommandBuffer();
+            s_Renderer->EndFrame();
+        }
     }
     s_Renderer->Destroy();
 }

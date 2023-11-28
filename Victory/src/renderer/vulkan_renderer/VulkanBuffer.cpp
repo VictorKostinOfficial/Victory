@@ -1,15 +1,20 @@
+#include <vulkan/vulkan.h>
+#include <vector>
+
 #include "VulkanBuffer.h"
 #include "../VertexData.h"
 
 #include <cstring>
+#include <array>
+#include <stdexcept>
 #include <chrono>
 
 #include "VulkanContext.h"
+#include "VulkanUtils.h"
 #include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
 #include "VulkanFrameBuffer.h"
 
-// #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -46,19 +51,19 @@ VulkanBuffer::VulkanBuffer(VulkanContext *context_, VulkanPipeline* pipeline_, V
     , m_Swapchain{swapchain_} {
 }
 
+// TODO: Move to VulkanFrameBuffer
 bool VulkanBuffer::CreateDepthResources() {
-    VkFormat depthFormat = FindDepthFormat();
+    CreateImageSettings settings{};
+    settings.Width = m_Swapchain->GetExtent().width;
+    settings.Height = m_Swapchain->GetExtent().height;
+    settings.Format = FindDepthFormat();
+    settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+    settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    CreateImage(
-        m_Swapchain->GetExtent().width, 
-        m_Swapchain->GetExtent().height, 
-        depthFormat, 
-        VK_IMAGE_TILING_OPTIMAL, 
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        m_DepthImage, m_DepthImageMemory);
+    CreateImage(settings, m_DepthImage, m_DepthImageMemory);
     
-    m_Swapchain->CreateImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, m_DepthImageView);
+    m_Swapchain->CreateImageView(m_DepthImage, settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT, m_DepthImageView);
     return true;
 }
 
@@ -74,11 +79,13 @@ bool VulkanBuffer::CreateTextureImage() {
 
     VkBuffer stagingBuffer{VK_NULL_HANDLE};
     VkDeviceMemory stagingBufferMemory{VK_NULL_HANDLE};
+    CreateBufferSettings bufferSettings{};
+    bufferSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    bufferSettings.Size = imageSize;
+    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-        , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        , stagingBuffer, stagingBufferMemory);
-
+    CreateBuffer(bufferSettings, stagingBuffer, stagingBufferMemory);
+        
     void* data;
     vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
         memcpy(data, pixels, static_cast<size_t>(imageSize));
@@ -86,9 +93,15 @@ bool VulkanBuffer::CreateTextureImage() {
 
     stbi_image_free(pixels);
 
-    CreateImage(static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL
-        , VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-        , VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_TextureImage, m_TextureImageMemory);
+    CreateImageSettings imageSettings{};
+    imageSettings.Width = static_cast<uint32_t>(texWidth);
+    imageSettings.Height = static_cast<uint32_t>(texHeight);
+    imageSettings.Format = VK_FORMAT_R8G8B8A8_SRGB;
+    imageSettings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageSettings.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageSettings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    CreateImage(imageSettings, m_TextureImage, m_TextureImageMemory);
 
     TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         CopyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
@@ -132,68 +145,28 @@ bool VulkanBuffer::CreateTextureSampler() {
     return (vkCreateSampler(m_Context->GetDevice(), &samplerCI, nullptr, &m_Sampler) == VK_SUCCESS);
 }
 
-void VulkanBuffer::CreateImage(uint32_t width_, uint32_t height_, VkFormat format_
-    , VkImageTiling tiling_, VkImageUsageFlags usage_, VkMemoryPropertyFlags properties_
-    , VkImage& image, VkDeviceMemory& imageMemory) {
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = width_;
-    imageInfo.extent.height = height_;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    // TODO: use supported by GPU format
-    imageInfo.format = format_;
-    imageInfo.tiling = tiling_;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = usage_;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.flags = 0;
-
-    if (vkCreateImage(m_Context->GetDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
-        throw std::runtime_error("Image was not created");
-    }
-
-    VkMemoryRequirements memReq;
-    vkGetImageMemoryRequirements(m_Context->GetDevice(), image, &memReq);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReq.size;
-    allocInfo.memoryTypeIndex = FindMemoryType(memReq.memoryTypeBits, properties_);
-
-    if (vkAllocateMemory(m_Context->GetDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-        throw std::runtime_error("Memory was not allocated");
-    }
-
-    vkBindImageMemory(m_Context->GetDevice(), image, imageMemory, 0);
-
-}
-
-bool VulkanBuffer::CreateVertexBuffer()
-{
+bool VulkanBuffer::CreateVertexBuffer() {
     VkDeviceSize bufferSize = static_cast<uint64_t>(sizeof(vertices[0]) * vertices.size());
 
     VkBuffer stagingBuffer{VK_NULL_HANDLE};
     VkDeviceMemory stagingBufferMemory{VK_NULL_HANDLE};
+    CreateBufferSettings bufferSettings{};
+    bufferSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    bufferSettings.Size = bufferSize;
+    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    if (CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingBufferMemory) != true) {
-        return false;
-    }
+    CreateBuffer(bufferSettings, stagingBuffer, stagingBufferMemory);
 
     void* data;
     vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, sizeof(vertices[0]) * vertices.size(), 0, &data);
         memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
     vkUnmapMemory(m_Context->GetDevice(), stagingBufferMemory);
 
-    if (CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory) != true) {
-            return false;
-    };
+    bufferSettings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    bufferSettings.Size = bufferSize;
+    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    CreateBuffer(bufferSettings, m_VertexBuffer, m_VertexBufferMemory);
     
     CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
@@ -207,14 +180,23 @@ bool VulkanBuffer::CreateIndexBuffer() {
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    CreateBufferSettings bufferSettings{};
+    bufferSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    bufferSettings.Size = bufferSize;
+    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    CreateBuffer(bufferSettings, stagingBuffer, stagingBufferMemory);
 
     void* data;
     vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
         memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
     vkUnmapMemory(m_Context->GetDevice(), stagingBufferMemory);
 
-    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
+    bufferSettings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    bufferSettings.Size = bufferSize;
+    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    CreateBuffer(bufferSettings, m_IndexBuffer, m_IndexBufferMemory);
 
     CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
@@ -226,14 +208,17 @@ bool VulkanBuffer::CreateIndexBuffer() {
 bool VulkanBuffer::CreateUniformBuffers(uint32_t maxFrames_) {
     VkDeviceSize bufferSize = static_cast<uint64_t>(sizeof(UniformBufferObject));
 
+    CreateBufferSettings bufferSettings{};
+    bufferSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    bufferSettings.Size = bufferSize;
+    bufferSettings.Usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
     m_UniformBuffers.resize(maxFrames_);
     m_UniformBuffersMemory.resize(maxFrames_);
     m_UniformBuffersMapped.resize(maxFrames_);
 
     for (size_t i{0}; i < maxFrames_; ++i) {
-        CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-            m_UniformBuffers[i], m_UniformBuffersMemory[i]);
-
+        CreateBuffer(bufferSettings, m_UniformBuffers[i], m_UniformBuffersMemory[i]);
         vkMapMemory(m_Context->GetDevice(), m_UniformBuffersMemory[i], 0, bufferSize, 0, &m_UniformBuffersMapped[i]);
     }
     return true;
@@ -304,35 +289,6 @@ bool VulkanBuffer::CreateDescriptorSets(uint32_t maxFrames_) {
     return true;
 }
 
-bool VulkanBuffer::CreateBuffer(VkDeviceSize size_, VkBufferUsageFlags usage_, VkMemoryPropertyFlags properties_, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_) {
-    VkBufferCreateInfo bufferCI{};
-    bufferCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferCI.size = size_;
-    bufferCI.usage = usage_;
-    bufferCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(m_Context->GetDevice(), &bufferCI, nullptr, &buffer_) != VK_SUCCESS) {
-        return false;
-    }
-
-    VkMemoryRequirements memRequirements{};
-    vkGetBufferMemoryRequirements(m_Context->GetDevice(), buffer_, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties_);
-    if (allocInfo.memoryTypeIndex == UINT32_MAX) {
-        return false;
-    }
-
-    if (vkAllocateMemory(m_Context->GetDevice(), &allocInfo, nullptr, &bufferMemory_) != VK_SUCCESS) {
-        return false;
-    }
-
-    return vkBindBufferMemory(m_Context->GetDevice(), buffer_, bufferMemory_, 0) == VK_SUCCESS;
-}
-
 void VulkanBuffer::UpdateUniformBuffer(uint32_t imageIndex_) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -393,17 +349,63 @@ uint32_t VulkanBuffer::GetIndicesCount() const {
     return static_cast<uint32_t>(indices.size());
 }
 
-uint32_t VulkanBuffer::FindMemoryType(uint32_t typeFilter_, VkMemoryPropertyFlags flags_) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_Context->GetPhysicalDevice(), &memProperties);
+bool VulkanBuffer::CreateImage(const CreateImageSettings &imageSettings_, VkImage& image_, VkDeviceMemory& imageMemory_) {
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = imageSettings_.Width;
+    imageInfo.extent.height = imageSettings_.Height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    // TODO: use supported by GPU format
+    imageInfo.format = imageSettings_.Format;
+    imageInfo.tiling = imageSettings_.Tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = imageSettings_.Usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.flags = 0;
 
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter_ & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & flags_) == flags_) {
-            return i;
-        }
+    vkCreateImage(m_Context->GetDevice(), &imageInfo, nullptr, &image_);
+
+    VkMemoryRequirements memReq;
+    vkGetImageMemoryRequirements(m_Context->GetDevice(), image_, &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = m_Context->FindMemoryType(memReq.memoryTypeBits, imageSettings_.Properties);
+
+    vkAllocateMemory(m_Context->GetDevice(), &allocInfo, nullptr, &imageMemory_);
+
+    return vkBindImageMemory(m_Context->GetDevice(), image_, imageMemory_, 0) == VK_SUCCESS;
+}
+
+bool VulkanBuffer::CreateBuffer(const CreateBufferSettings &bufferSettings_, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_) {
+    VkBufferCreateInfo bufferCI{};
+    bufferCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferCI.size = bufferSettings_.Size;
+    bufferCI.usage = bufferSettings_.Usage;
+    bufferCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(m_Context->GetDevice(), &bufferCI, nullptr, &buffer_) != VK_SUCCESS) {
+        return false;
     }
 
-    return UINT32_MAX;
+    VkMemoryRequirements memRequirements{};
+    vkGetBufferMemoryRequirements(m_Context->GetDevice(), buffer_, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = m_Context->FindMemoryType(memRequirements.memoryTypeBits, bufferSettings_.Properties);
+    if (allocInfo.memoryTypeIndex == UINT32_MAX) {
+        return false;
+    }
+
+    vkAllocateMemory(m_Context->GetDevice(), &allocInfo, nullptr, &bufferMemory_);
+
+    return vkBindBufferMemory(m_Context->GetDevice(), buffer_, bufferMemory_, 0) == VK_SUCCESS;
 }
 
 void VulkanBuffer::CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_) {

@@ -2,8 +2,12 @@
 
 #include "../Renderer.h"
 
-#include <vulkan/vulkan_core.h>
 #include <vector>
+
+struct VkSemaphore_T;
+struct VkFence_T;
+typedef VkSemaphore_T *VkSemaphore;
+typedef VkFence_T *VkFence;
 
 class VulkanContext;
 class VulkanSwapchain;
@@ -23,8 +27,9 @@ public:
     virtual bool IsRunning() override;
     virtual void PollEvents() override;
 
-    virtual void Resize() override;
+    virtual bool Resize() override;
     virtual void BeginFrame() override;
+    virtual void RecordCommandBuffer() override;
     virtual void EndFrame() override;
 
     virtual void Destroy() override;
@@ -35,6 +40,8 @@ private:
 
     VulkanRenderer() = default;
     virtual ~VulkanRenderer() = default;
+
+    void RecreateSwapchain();
 
 private: 
 
@@ -47,9 +54,12 @@ private:
     VulkanBuffer* m_VulkanBuffer;
 
     uint32_t m_CurrentFrame{0};
+    uint32_t m_ImageIndex{0};
+
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
     bool m_IsResized{false};
 
+    // TODO: create memoryMenegmentClass or move to VulkanSynchronization
     std::vector<VkSemaphore> m_AvailableSemaphores;
     std::vector<VkSemaphore> m_FinishedSemaphores;
     std::vector<VkFence> m_InFlightFences;

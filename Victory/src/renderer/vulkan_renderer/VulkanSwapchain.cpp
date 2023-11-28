@@ -1,6 +1,10 @@
+#include <vulkan/vulkan.h>
+#include <vector>
+
 #include "VulkanSwapchain.h"
 
 #include <GLFW/glfw3.h>
+#include <stdio.h>
 
 #include "VulkanContext.h"
 

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
-#include <vector>
-
 class VulkanContext;
 class VulkanSwapchain;
 class VulkanPipeline;
@@ -20,7 +17,6 @@ public:
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
 
     // TODO: move function to VulkanRenderer
-    void RecordCommandBuffer(uint32_t commandBufferIndex_, uint32_t imageIndex_);
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
 
@@ -28,12 +24,16 @@ public:
     void CleanupFrameBuffers();
     void CleanupAll();
 
-    inline VkCommandBuffer GetCommandBuffer(uint32_t commandBufferIndex) const {
-        return m_CommandBuffers[commandBufferIndex];
+    inline VkCommandBuffer GetCommandBuffer(const uint32_t index) const {
+        return m_CommandBuffers[index];
     }
 
     inline VkCommandPool GetCommandPool() const {
         return m_CommandPool;
+    }
+
+    inline VkFramebuffer GetFrameBuffer(const uint32_t index) const {
+        return m_FrameBuffers[index];
     }
 
 private:

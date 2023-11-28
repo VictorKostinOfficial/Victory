@@ -1,4 +1,10 @@
+#include <vulkan/vulkan.h>
+#include <vector>
+
 #include "VulkanFrameBuffer.h"
+
+#include <stdexcept>
+#include <array>
 
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
@@ -62,63 +68,6 @@ bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
 
     m_CommandBuffers.resize(commandBufferCount_);
     return vkAllocateCommandBuffers(m_Context->GetDevice(), &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
-}
-
-void VulkanFrameBuffer::RecordCommandBuffer(uint32_t commandBufferIndex_, uint32_t imageIndex_) {
-    VkCommandBufferBeginInfo commandBufferBI{};
-    commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    VkCommandBuffer commandBuffer = m_CommandBuffers[commandBufferIndex_];
-    vkBeginCommandBuffer(commandBuffer, &commandBufferBI);
-
-    VkRect2D rect{};
-    rect.offset = {0, 0};
-    rect.extent = m_Swapchain->GetExtent();
-
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f}};
-    clearValues[1].depthStencil = {1.f, 0};
-
-    VkRenderPassBeginInfo renderPassBI{};
-    renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBI.renderPass = m_Pipeline->GetRenderPass();
-    renderPassBI.framebuffer = m_FrameBuffers[imageIndex_];
-    renderPassBI.renderArea = rect;
-    renderPassBI.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassBI.pClearValues = clearValues.data();
-
-    // TODO: split function begin/end
-    vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
-    {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline->GetPipeline());
-
-        std::vector<VkBuffer> vertexBuffers{m_Buffer->GetVertexBuffer()};
-        VkBuffer indexBuffer{m_Buffer->GetIndexBuffer()};
-        std::vector<VkDeviceSize> offsets{0};
-
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-        VkViewport viewport{};
-        viewport.x = 0.f;
-        viewport.y = 0.f;
-        viewport.width = static_cast<float>(rect.extent.width);
-        viewport.height = static_cast<float>(rect.extent.height);
-        viewport.minDepth = 0.f;
-        viewport.maxDepth = 1.f;
-
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(commandBuffer, 0, 1, &rect);
-
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline->GetPipelineLayout(), 
-            0, 1, &m_Buffer->GetDescriptorSet(commandBufferIndex_), 0, nullptr);
-
-        vkCmdDrawIndexed(commandBuffer, m_Buffer->GetIndicesCount(), 1, 0, 0, 0);
-
-    }
-    vkCmdEndRenderPass(commandBuffer);
-
-    vkEndCommandBuffer(commandBuffer);
 }
 
 VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {

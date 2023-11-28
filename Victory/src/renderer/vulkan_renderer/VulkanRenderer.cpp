@@ -1,13 +1,18 @@
+#include <vulkan/vulkan.h>
+
 #include "VulkanRenderer.h"
 
 #include <GLFW/glfw3.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <array>
 
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
 #include "VulkanBuffer.h"
 #include "VulkanFrameBuffer.h"
-#include "VulkanSynchronization.h"
+#include "VulkanUtils.h"
 
 #define CHK_RESULT(RESULT, MESSAGE) \
     if (RESULT == false) { \
@@ -129,11 +134,11 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (uint32_t i{0}; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        CHK_RESULT(CreateSemaphore(m_VulkanContext->GetDevice(), &m_AvailableSemaphores[i]),
+        CHK_RESULT(VulkanUtils::CreateSemaphore(m_VulkanContext->GetDevice(), &m_AvailableSemaphores[i]),
             "Available semaphore was not created!");
-        CHK_RESULT(CreateSemaphore(m_VulkanContext->GetDevice(), &m_FinishedSemaphores[i]),
+        CHK_RESULT(VulkanUtils::CreateSemaphore(m_VulkanContext->GetDevice(), &m_FinishedSemaphores[i]),
             "Finished semaphore was not created!");
-        CHK_RESULT(CreateFence(m_VulkanContext->GetDevice(), &m_InFlightFences[i]),
+        CHK_RESULT(VulkanUtils::CreateFence(m_VulkanContext->GetDevice(), &m_InFlightFences[i]),
             "Fence was not created!");
     }
 }
@@ -148,71 +153,101 @@ void VulkanRenderer::PollEvents() {
     glfwPollEvents();
 }
 
-void VulkanRenderer::Resize() {
+bool VulkanRenderer::Resize() {
     printf("\nVulkanRenderer::Resize");
 
-    // TODO: doesn't work on UNIX
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(m_Window, &width, &height);
-    while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(m_Window, &width, &height);
-        printf("\n %i%i", width,height);
-        glfwWaitEvents();
-    }
-
     VkDevice device = m_VulkanContext->GetDevice();
-    vkDeviceWaitIdle(device);
+    CHK_RESULT((vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) == VK_SUCCESS),
+        "Wait for fences = false!");
 
-    m_VulkanSwapchain->CleanupSwapchain();
-    m_VulkanSwapchain->CleanupImageViews();
-    m_VulkanBuffer->CleanupDepthResources();
-    m_VulkanFrameBuffer->CleanupFrameBuffers();
+    VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
 
-    CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
-        "Swapchain was not created!");
-
-    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
-        "Image views were not created!");
-
-    CHK_RESULT(m_VulkanBuffer->CreateDepthResources(), 
-        "Depth Resources were not created!");
-
-    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
-        "Frame buffers were not created!");
+    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR || m_IsResized)
+    {
+        m_IsResized = false;
+        RecreateSwapchain();
+        vkDestroySemaphore(device, m_AvailableSemaphores[m_CurrentFrame], nullptr);
+        VulkanUtils::CreateSemaphore(device, &m_AvailableSemaphores[m_CurrentFrame]);
+        return true;
+    }
+    else if (acquireResult != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failde to acquire swap chain image!");
+    }
+    return false;
 }
 
 void VulkanRenderer::BeginFrame() {
     printf("\nVulkanRenderer::BeginFrame");
 
-    vk::Device device = m_VulkanContext->GetDevice();
-    CHK_RESULT((vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) == VK_SUCCESS),
-        "Wait for fences = false!");
-
-    uint32_t imageIndex{0};
-    VkResult acquireResult = vkAcquireNextImageKHR(device, m_VulkanSwapchain->GetSwapchain(), UINT64_MAX, m_AvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
-    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR || acquireResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
-        m_IsResized = false;
-        Resize();
-        vkDestroySemaphore(device, m_AvailableSemaphores[m_CurrentFrame], nullptr);
-        CreateSemaphore(device, &m_AvailableSemaphores[m_CurrentFrame]);
-        return;
-    } else if (acquireResult != VK_SUCCESS) {
-        throw std::runtime_error("Failde to acquire swap chain image!");
-    }
-
-    vkResetFences(device, 1, &m_InFlightFences[m_CurrentFrame]);
-
     m_VulkanBuffer->UpdateUniformBuffer(m_CurrentFrame);
+    vkResetFences(m_VulkanContext->GetDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
+}
 
+void VulkanRenderer::RecordCommandBuffer() {
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);
 
-    m_VulkanFrameBuffer->RecordCommandBuffer(m_CurrentFrame, imageIndex);
+    VkCommandBufferBeginInfo commandBufferBI{};
+    commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+    vkBeginCommandBuffer(commandBuffer, &commandBufferBI);
+
+    VkRect2D rect{};
+    rect.offset = {0, 0};
+    rect.extent = m_VulkanSwapchain->GetExtent();
+
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f}};
+    clearValues[1].depthStencil = {1.f, 0};
+
+    VkRenderPassBeginInfo renderPassBI{};
+    renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBI.renderPass = m_VulkanPipeline->GetRenderPass();
+    renderPassBI.framebuffer = m_VulkanFrameBuffer->GetFrameBuffer(m_ImageIndex);
+    renderPassBI.renderArea = rect;
+    renderPassBI.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassBI.pClearValues = clearValues.data();
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+    {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipeline());
+
+        // TODO: split vertex/index data from m_Buffer
+        std::vector<VkBuffer> vertexBuffers{m_VulkanBuffer->GetVertexBuffer()};
+        VkBuffer indexBuffer{m_VulkanBuffer->GetIndexBuffer()};
+        std::vector<VkDeviceSize> offsets{0};
+
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+        VkViewport viewport{};
+        viewport.x = 0.f;
+        viewport.y = 0.f;
+        viewport.width = static_cast<float>(rect.extent.width);
+        viewport.height = static_cast<float>(rect.extent.height);
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffer, 0, 1, &rect);
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipelineLayout(), 
+            0, 1, &m_VulkanBuffer->GetDescriptorSet(m_CurrentFrame), 0, nullptr);
+
+        vkCmdDrawIndexed(commandBuffer, m_VulkanBuffer->GetIndicesCount(), 1, 0, 0, 0);
+
+    }
+    vkCmdEndRenderPass(commandBuffer);
+    vkEndCommandBuffer(commandBuffer);
+}
+
+void VulkanRenderer::EndFrame() {
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
     const std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
+    VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
@@ -236,7 +271,7 @@ void VulkanRenderer::BeginFrame() {
     presentInfo.pWaitSemaphores = signalOld.data();
     presentInfo.swapchainCount = static_cast<uint32_t>(swapOld.size());
     presentInfo.pSwapchains = swapOld.data();
-    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pImageIndices = &m_ImageIndex;
 
     VkQueue presentQueue = m_VulkanContext->GetQueue(QueueIndex::ePresent);
 
@@ -249,9 +284,6 @@ void VulkanRenderer::BeginFrame() {
     }
 
     m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-void VulkanRenderer::EndFrame() {
     printf("\nVulkanRenderer::EndFrame");
 }
 
@@ -285,4 +317,35 @@ void VulkanRenderer::Destroy() {
 
 void VulkanRenderer::SetIsResized(bool isResized_) {
     m_IsResized = isResized_;
+}
+
+void VulkanRenderer::RecreateSwapchain() {
+    // TODO: doesn't work on UNIX
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(m_Window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(m_Window, &width, &height);
+        printf("\n %i%i", width,height);
+        glfwWaitEvents();
+    }
+
+    VkDevice device = m_VulkanContext->GetDevice();
+    vkDeviceWaitIdle(device);
+
+    m_VulkanSwapchain->CleanupSwapchain();
+    m_VulkanSwapchain->CleanupImageViews();
+    m_VulkanBuffer->CleanupDepthResources();
+    m_VulkanFrameBuffer->CleanupFrameBuffers();
+
+    CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
+        "Swapchain was not created!");
+
+    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
+        "Image views were not created!");
+
+    CHK_RESULT(m_VulkanBuffer->CreateDepthResources(), 
+        "Depth Resources were not created!");
+
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
+        "Frame buffers were not created!");
 }

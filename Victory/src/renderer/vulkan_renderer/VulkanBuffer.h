@@ -1,12 +1,24 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
-#include <vector>
-
 class VulkanContext;
 class VulkanFrameBuffer;
 class VulkanSwapchain;
 class VulkanPipeline;
+
+struct CreateImageSettings {
+    uint32_t Width, Height;
+    VkFormat Format;
+    VkImageTiling Tiling;
+    VkImageUsageFlags Usage;
+    VkMemoryPropertyFlags Properties;
+};
+
+struct CreateBufferSettings {
+    VkDeviceSize Size;
+    VkBufferUsageFlags Usage;
+    VkMemoryPropertyFlags Properties;
+};
+
 
 class VulkanBuffer
 {
@@ -56,12 +68,9 @@ public:
 
 private:
 
-    void CreateImage(uint32_t width_, uint32_t height_, VkFormat format_
-        , VkImageTiling tiling_, VkImageUsageFlags usage_, VkMemoryPropertyFlags properties_
-        , VkImage& image, VkDeviceMemory& imageMemory);
-    bool CreateBuffer(VkDeviceSize bufferSize_, VkBufferUsageFlags usage_
-        , VkMemoryPropertyFlags properties, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
-    uint32_t FindMemoryType(uint32_t typeFilter_, VkMemoryPropertyFlags flags_);
+    bool CreateImage(const CreateImageSettings& imageSettings_, VkImage& image_, VkDeviceMemory& imageMemory_);
+    bool CreateBuffer(const CreateBufferSettings& bufferSettings_, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
+
     void CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_);
     void TransitionImageLayout(VkImage image_, VkFormat format_, VkImageLayout oldLayout_, VkImageLayout newLayout_);
     void CopyBufferToImage(VkBuffer buffer_, VkImage image_, uint32_t width_, uint32_t height_);

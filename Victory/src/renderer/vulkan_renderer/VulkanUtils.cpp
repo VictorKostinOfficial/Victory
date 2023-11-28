@@ -1,6 +1,11 @@
-#include "VulkanSynchronization.h"
+#include <vulkan/vulkan.h>
 
-bool CreateSemaphore(VkDevice device_, VkSemaphore* semaphore_) {
+#include "VulkanUtils.h"
+
+#include "VulkanContext.h"
+
+bool VulkanUtils::CreateSemaphore(VkDevice device_, VkSemaphore *semaphore_)
+{
     if (!semaphore_) {
         return false;
     }
@@ -11,7 +16,7 @@ bool CreateSemaphore(VkDevice device_, VkSemaphore* semaphore_) {
     return vkCreateSemaphore(device_, &semaphoreCI, nullptr, semaphore_) == VK_SUCCESS;
 }
 
-bool CreateFence(VkDevice device_, VkFence* fence_) {
+bool VulkanUtils::CreateFence(VkDevice device_, VkFence* fence_) {
     if (!fence_) {
         return false;
     }

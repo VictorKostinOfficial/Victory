@@ -1,8 +1,7 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
-
 #include "VulkanTypes.h"
+#include <vector>
 
 class VulkanContext {
 public:
@@ -15,6 +14,8 @@ public:
     bool RegisterDebugUtilsMessenger();
     void CleanupDebugUtilsMessenger();
 #endif
+
+    uint32_t FindMemoryType(const uint32_t typeFilter_, const VkMemoryPropertyFlags flags_) const;
 
     void CleanupLogicalDevice();
     void CleanupInstance();
