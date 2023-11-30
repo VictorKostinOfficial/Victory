@@ -96,6 +96,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanBuffer->CreateDepthResources(),
         "Depth resources were not created");
 
+    CHK_RESULT(m_VulkanBuffer->LoadModel(),
+        "Model was not loaded");
+
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
 

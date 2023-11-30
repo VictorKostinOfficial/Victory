@@ -26,6 +26,8 @@ public:
     VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, 
         VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
 
+    bool LoadModel();
+
     bool CreateDepthResources();
 
     bool CreateTextureImage();
