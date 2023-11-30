@@ -201,7 +201,7 @@ void VulkanRenderer::RecordCommandBuffer() {
     rect.extent = m_VulkanSwapchain->GetExtent();
 
     std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f}};
+    clearValues[0].color = {{6.f / 255.f, 1.25f / 255.f, 4.5f / 255.f, 1.f}};
     clearValues[1].depthStencil = {1.f, 0};
 
     VkRenderPassBeginInfo renderPassBI{};

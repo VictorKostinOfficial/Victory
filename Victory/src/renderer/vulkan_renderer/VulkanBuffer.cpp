@@ -6,6 +6,7 @@
 
 #include <cstring>
 #include <array>
+#include <unordered_map>
 #include <stdexcept>
 #include <chrono>
 
@@ -67,6 +68,8 @@ bool VulkanBuffer::LoadModel() {
         throw std::runtime_error(warn + err);
     }
 
+    std::unordered_map<VertexData, uint32_t> uniqueVertices{};
+
     indices.reserve(attrib.vertices.size());
     vertices.reserve(attrib.vertices.size());
 
@@ -87,8 +90,12 @@ bool VulkanBuffer::LoadModel() {
 
             vertex.color = {1.f, 1.f, 1.f};
 
-            vertices.emplace_back(vertex);
-            indices.emplace_back(indices.size());
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.emplace_back(vertex);
+            }
+
+            indices.emplace_back(uniqueVertices[vertex]);
         }
     }
     return true;
