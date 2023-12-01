@@ -9,7 +9,7 @@
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
 #include "VulkanPipeline.h"
-#include "VulkanBuffer.h"
+#include "VulkanImage.h"
 
 VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
     VulkanPipeline* pipeline_, VulkanBuffer* buffer_) 
@@ -36,7 +36,7 @@ bool VulkanFrameBuffer::CreateFrameBuffers() {
     m_FrameBuffers.resize(imageViews.size());
 
     for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
-        std::array<VkImageView, 2> attachmetns{imageViews[i], m_Buffer->GetDepthImageView()};
+        std::array<VkImageView, 2> attachmetns{imageViews[i], m_DepthImage->GetImageView()};
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachmetns.size());
         frameBufferCI.pAttachments = attachmetns.data();
 
@@ -49,8 +49,7 @@ bool VulkanFrameBuffer::CreateFrameBuffers() {
     return true;
 }
 
-bool VulkanFrameBuffer::CreateCommandPool()
-{
+bool VulkanFrameBuffer::CreateCommandPool() {
     VkCommandPoolCreateInfo commandPoolCI{};
     commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -69,6 +68,23 @@ bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     m_CommandBuffers.resize(commandBufferCount_);
     return vkAllocateCommandBuffers(m_Context->GetDevice(), &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
+
+bool VulkanFrameBuffer::CreateDepthResources() {
+    m_DepthImage = new VulkanImage(m_Context, this);
+    CreateImageSettings settings{};
+    settings.Width = m_Swapchain->GetExtent().width;
+    settings.Height = m_Swapchain->GetExtent().height;
+    settings.Format = m_Pipeline->FindDepthFormat();
+    settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+    settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    // TODO: i don't need png here
+    m_DepthImage->CreateImage(settings);
+    m_DepthImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
+    return true;
+}
+
 
 VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -112,11 +128,21 @@ void VulkanFrameBuffer::CleanupFrameBuffers() {
     }
 }
 
-void VulkanFrameBuffer::CleanupCommandPool() {
+void VulkanFrameBuffer::CleanupDepthResources() {
+    delete m_DepthImage;
+}
+
+void VulkanFrameBuffer::CleanupCommandPool()
+{
     vkDestroyCommandPool(m_Context->GetDevice(), m_CommandPool, nullptr);
 }
 
 void VulkanFrameBuffer::CleanupAll() {
+    m_DepthImage->CleanupAll();
     CleanupCommandPool();
     CleanupFrameBuffers();
 }
+
+//----------------------------------------------------------------------
+//--------------------------------PRIVATE-------------------------------
+//----------------------------------------------------------------------

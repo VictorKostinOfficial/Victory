@@ -13,6 +13,7 @@ class VulkanContext;
 class VulkanSwapchain;
 class VulkanPipeline;
 class VulkanFrameBuffer;
+class VulkanImage;
 class VulkanBuffer;
 
 struct GLFWwindow;
@@ -58,6 +59,8 @@ private:
 
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
     bool m_IsResized{false};
+
+    std::vector<VulkanImage> m_Images;
 
     // TODO: create memoryMenegmentClass or move to VulkanSynchronization
     std::vector<VkSemaphore> m_AvailableSemaphores;

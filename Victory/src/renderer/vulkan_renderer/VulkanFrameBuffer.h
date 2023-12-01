@@ -4,6 +4,7 @@ class VulkanContext;
 class VulkanSwapchain;
 class VulkanPipeline;
 class VulkanBuffer;
+class VulkanImage;
 
 class VulkanFrameBuffer {
 public:
@@ -15,11 +16,13 @@ public:
     bool CreateFrameBuffers();
     bool CreateCommandPool();
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
+    bool CreateDepthResources();
 
     // TODO: move function to VulkanRenderer
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
 
+    void CleanupDepthResources();
     void CleanupCommandPool();
     void CleanupFrameBuffers();
     void CleanupAll();
@@ -46,4 +49,6 @@ private:
     std::vector<VkFramebuffer> m_FrameBuffers;
     VkCommandPool m_CommandPool{VK_NULL_HANDLE};
     std::vector<VkCommandBuffer> m_CommandBuffers;
+
+    VulkanImage* m_DepthImage;
 };

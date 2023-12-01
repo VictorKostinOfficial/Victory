@@ -13,6 +13,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanFrameBuffer.h"
 #include "VulkanUtils.h"
+#include "VulkanImage.h"
 
 #define CHK_RESULT(RESULT, MESSAGE) \
     if (RESULT == false) { \
@@ -93,26 +94,38 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_VulkanBuffer = new VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain);
     m_VulkanFrameBuffer->SetVulkanBuffer(m_VulkanBuffer);
 
-    CHK_RESULT(m_VulkanBuffer->CreateDepthResources(),
-        "Depth resources were not created");
+    CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(),
+        "Command pool was not created!");
 
-    CHK_RESULT(m_VulkanBuffer->LoadModel(),
-        "Model was not loaded");
+    CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(),
+        "Depth resources were not created");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(),
-        "Command pool was not created!");
+    CHK_RESULT(m_VulkanBuffer->LoadModel(),
+        "Model was not loaded");
 
-    CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
-        "Texture image was not created");
+    // CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
+    //     "Texture image was not created");
+    // CHK_RESULT(m_VulkanBuffer->CreateTextureImageView(), 
+    //     "Texture image view was not created");
+    // CHK_RESULT(m_VulkanBuffer->CreateTextureSampler(), 
+    //     "Texture sampler view was not created");
 
-    CHK_RESULT(m_VulkanBuffer->CreateTextureImageView(), 
-        "Texture image view was not created");
+    m_Images.push_back(VulkanImage(m_VulkanContext, m_VulkanFrameBuffer));
+    CreateImageSettings settings{};
+    // Calculted in LoadTexture
+    // imageSettings.Width = static_cast<uint32_t>(texWidth);
+    // imageSettings.Height = static_cast<uint32_t>(texHeight);
+    settings.Format = VK_FORMAT_R8G8B8A8_SRGB;
+    settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+    settings.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    m_Images[0].LoadTexture("viking_room.png", settings);
+    m_Images[0].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_Images[0].CreateSampler();
 
-    CHK_RESULT(m_VulkanBuffer->CreateTextureSampler(), 
-        "Texture sampler view was not created");
 
     CHK_RESULT(m_VulkanBuffer->CreateVertexBuffer(),
         "Vertex buffer was not created");
@@ -126,7 +139,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanBuffer->CreateDescriptorPool(MAX_FRAMES_IN_FLIGHT),
         "Descriptor pool was not created");
 
-    CHK_RESULT(m_VulkanBuffer->CreateDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+    CHK_RESULT(m_VulkanBuffer->CreateDescriptorSets(MAX_FRAMES_IN_FLIGHT, m_Images[0].GetSampler(), m_Images[0].GetImageView()),
         "Descriptor sets was not created");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT),
@@ -188,6 +201,8 @@ void VulkanRenderer::BeginFrame() {
 }
 
 void VulkanRenderer::RecordCommandBuffer() {
+    printf("\nVulkanRenderer::RecordCommandBuffer");
+
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);
 
@@ -246,6 +261,8 @@ void VulkanRenderer::RecordCommandBuffer() {
 }
 
 void VulkanRenderer::EndFrame() {
+    printf("\nVulkanRenderer::EndFrame");
+
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
     const std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -287,13 +304,16 @@ void VulkanRenderer::EndFrame() {
     }
 
     m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-    printf("\nVulkanRenderer::EndFrame");
 }
 
 void VulkanRenderer::Destroy() {
     VkDevice device = m_VulkanContext->GetDevice();
 
     vkDeviceWaitIdle(device);
+
+    for (auto&& image : m_Images) {
+        image.CleanupAll();
+    }
 
     for (size_t i{0}, n = m_AvailableSemaphores.size(); i < n; ++i) {
         vkDestroySemaphore(device, m_AvailableSemaphores[i], nullptr);
@@ -337,7 +357,7 @@ void VulkanRenderer::RecreateSwapchain() {
 
     m_VulkanSwapchain->CleanupSwapchain();
     m_VulkanSwapchain->CleanupImageViews();
-    m_VulkanBuffer->CleanupDepthResources();
+    m_VulkanFrameBuffer->CleanupDepthResources();
     m_VulkanFrameBuffer->CleanupFrameBuffers();
 
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
@@ -346,7 +366,7 @@ void VulkanRenderer::RecreateSwapchain() {
     CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
         "Image views were not created!");
 
-    CHK_RESULT(m_VulkanBuffer->CreateDepthResources(), 
+    CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(), 
         "Depth Resources were not created!");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
