@@ -91,7 +91,6 @@ void VulkanRenderer::Initialize(const char *applicationName_){
         "Pipeline was not created!");
 
     m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline);
-    m_VulkanBuffer = new VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain);
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(),
         "Command pool was not created!");
@@ -113,6 +112,10 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_Models[0].LoadModel("viking_room.obj");
     m_Models[0].CreateVertexBuffer();
     m_Models[0].CreateIndexBuffer();
+    m_Models.push_back(VulkanModel(m_VulkanContext, m_VulkanFrameBuffer));
+    m_Models[1].LoadModel("hat_luffy.obj");
+    m_Models[1].CreateVertexBuffer();
+    m_Models[1].CreateIndexBuffer();
 
     // CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
     //     "Texture image was not created");
@@ -133,15 +136,23 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_Images[0].LoadTexture("viking_room.png", settings);
     m_Images[0].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
     m_Images[0].CreateSampler();
+    m_Images.push_back(VulkanImage(m_VulkanContext, m_VulkanFrameBuffer));
+    m_Images[1].LoadTexture("hat_luffy.png", settings);
+    m_Images[1].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_Images[1].CreateSampler();
 
-    CHK_RESULT(m_VulkanBuffer->CreateUniformBuffers(MAX_FRAMES_IN_FLIGHT),
-        "Uniform buffer was not created");
+    m_Buffers.push_back(VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain));
+    m_Buffers.push_back(VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain));
+    for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
+        CHK_RESULT(m_Buffers[i].CreateUniformBuffers(MAX_FRAMES_IN_FLIGHT),
+            "Uniform buffer was not created");
 
-    CHK_RESULT(m_VulkanBuffer->CreateDescriptorPool(MAX_FRAMES_IN_FLIGHT),
-        "Descriptor pool was not created");
+        CHK_RESULT(m_Buffers[i].CreateDescriptorPool(MAX_FRAMES_IN_FLIGHT),
+            "Descriptor pool was not created");
 
-    CHK_RESULT(m_VulkanBuffer->CreateDescriptorSets(MAX_FRAMES_IN_FLIGHT, m_Images[0].GetSampler(), m_Images[0].GetImageView()),
-        "Descriptor sets was not created");
+        CHK_RESULT(m_Buffers[i].CreateDescriptorSets(MAX_FRAMES_IN_FLIGHT, m_Images[i].GetSampler(), m_Images[i].GetImageView()),
+            "Descriptor sets was not created");
+    }
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT),
         "Command buffer was not created!");
@@ -197,7 +208,9 @@ bool VulkanRenderer::Resize() {
 void VulkanRenderer::BeginFrame() {
     printf("\nVulkanRenderer::BeginFrame");
 
-    m_VulkanBuffer->UpdateUniformBuffer(m_CurrentFrame);
+    for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
+        m_Buffers[i].UpdateUniformBuffer(m_CurrentFrame);
+    }
     vkResetFences(m_VulkanContext->GetDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
 }
 
@@ -232,14 +245,6 @@ void VulkanRenderer::RecordCommandBuffer() {
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipeline());
 
-        // TODO: split vertex/index data from m_Buffer
-        std::vector<VkBuffer> vertexBuffers{m_Models[0].GetVertexBuffer()};
-        VkBuffer indexBuffer{m_Models[0].GetIndexBuffer()};
-        std::vector<VkDeviceSize> offsets{0};
-
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
         VkViewport viewport{};
         viewport.x = 0.f;
         viewport.y = 0.f;
@@ -251,11 +256,20 @@ void VulkanRenderer::RecordCommandBuffer() {
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &rect);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipelineLayout(), 
-            0, 1, &m_VulkanBuffer->GetDescriptorSet(m_CurrentFrame), 0, nullptr);
+        for (size_t i{0}, n = m_Models.size(); i < n; ++i) {
+            std::vector<VkBuffer> vertexBuffers{m_Models[i].GetVertexBuffer()};
+            VkBuffer indexBuffer{m_Models[i].GetIndexBuffer()};
+            std::vector<VkDeviceSize> offsets{0};
 
-        vkCmdDrawIndexed(commandBuffer, m_Models[0].GetIndexCount(), 1, 0, 0, 0);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
+            vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
+
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipelineLayout(), 
+                0, 1, &m_Buffers[i].GetDescriptorSet(m_CurrentFrame), 0, nullptr);
+
+            vkCmdDrawIndexed(commandBuffer, m_Models[i].GetIndexCount(), 1, 0, 0, 0);
+        }
     }
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
@@ -296,7 +310,6 @@ void VulkanRenderer::EndFrame() {
 
     VkQueue presentQueue = m_VulkanContext->GetQueue(QueueIndex::ePresent);
 
-    // TODO: Resize by changing window size
     VkResult presentResult = vkQueuePresentKHR(presentQueue, &presentInfo);
     if (presentResult ==  VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
         Resize();
@@ -320,13 +333,16 @@ void VulkanRenderer::Destroy() {
         model.CleanupAll();
     }
 
+    for (auto&& buffer : m_Buffers) {
+        buffer.CleanupAll();
+    }
+
     for (size_t i{0}, n = m_AvailableSemaphores.size(); i < n; ++i) {
         vkDestroySemaphore(device, m_AvailableSemaphores[i], nullptr);
         vkDestroySemaphore(device, m_FinishedSemaphores[i], nullptr);
         vkDestroyFence(device, m_InFlightFences[i], nullptr);
     }
 
-    m_VulkanBuffer->CleanupAll();
     m_VulkanFrameBuffer->CleanupAll();
     m_VulkanPipeline->CleanupAll();
     m_VulkanSwapchain->CleanupAll();
@@ -335,7 +351,6 @@ void VulkanRenderer::Destroy() {
     glfwDestroyWindow(m_Window);
     glfwTerminate();
 
-    delete m_VulkanBuffer;
     delete m_VulkanFrameBuffer;
     delete m_VulkanPipeline;
     delete m_VulkanSwapchain;

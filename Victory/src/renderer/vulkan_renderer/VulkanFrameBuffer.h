@@ -17,7 +17,6 @@ public:
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
     bool CreateDepthResources();
 
-    // TODO: move function to VulkanRenderer
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
 

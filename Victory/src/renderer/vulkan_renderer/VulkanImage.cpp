@@ -16,7 +16,6 @@ VulkanImage::VulkanImage(VulkanContext *context_, VulkanFrameBuffer* frameBuffer
     : m_Context{context_}, m_FrameBuffer{frameBuffer_} {
 }
 
-// TODO: CreateTextureImage
 bool VulkanImage::LoadTexture(std::string&& path_, CreateImageSettings& settings_) {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(path_.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);

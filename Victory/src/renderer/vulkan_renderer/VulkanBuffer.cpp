@@ -142,14 +142,12 @@ void VulkanBuffer::UpdateUniformBuffer(uint32_t imageIndex_) {
 
 void VulkanBuffer::FreeMemory()
 {
-    // TODO: split this function
     for (auto&& memory : m_UniformBuffersMemory) {
         vkFreeMemory(m_Context->GetDevice(), memory, nullptr);
     }
 }
 
 void VulkanBuffer::CleanupVertexBuffer() {
-    // TODO: split this function
     for (auto&& buffer : m_UniformBuffers) {
         vkDestroyBuffer(m_Context->GetDevice(), buffer, nullptr);
     }

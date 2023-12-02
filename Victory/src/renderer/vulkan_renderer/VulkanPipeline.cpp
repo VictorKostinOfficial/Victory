@@ -139,7 +139,6 @@ bool VulkanPipeline::CreatePipeline() {
         fragmentShaderStageCI
     };
 
-    // TODO: Rid of hard code data from vert shader
     auto&& bindingDescription = VulkanRenderer::GetBindingDescription();
     auto&& attributegDescriptions = VulkanRenderer::GetAttributeDescriptions();
 

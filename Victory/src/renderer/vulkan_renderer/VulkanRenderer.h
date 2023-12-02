@@ -53,7 +53,7 @@ private:
     VulkanSwapchain* m_VulkanSwapchain;
     VulkanPipeline* m_VulkanPipeline;
     VulkanFrameBuffer* m_VulkanFrameBuffer;
-    VulkanBuffer* m_VulkanBuffer;
+    // VulkanBuffer* m_VulkanBuffer;
 
     uint32_t m_CurrentFrame{0};
     uint32_t m_ImageIndex{0};
@@ -63,6 +63,7 @@ private:
 
     std::vector<VulkanImage> m_Images;
     std::vector<VulkanModel> m_Models;
+    std::vector<VulkanBuffer> m_Buffers;
 
     // TODO: create memoryMenegmentClass or move to VulkanSynchronization
     std::vector<VkSemaphore> m_AvailableSemaphores;

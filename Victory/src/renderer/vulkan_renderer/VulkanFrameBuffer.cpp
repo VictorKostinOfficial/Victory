@@ -74,7 +74,6 @@ bool VulkanFrameBuffer::CreateDepthResources() {
     settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    // TODO: i don't need png here
     m_DepthImage->CreateImage(settings);
     m_DepthImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
     return true;
