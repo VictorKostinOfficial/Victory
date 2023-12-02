@@ -14,6 +14,7 @@ class VulkanSwapchain;
 class VulkanPipeline;
 class VulkanFrameBuffer;
 class VulkanImage;
+class VulkanModel;
 class VulkanBuffer;
 
 struct GLFWwindow;
@@ -61,6 +62,7 @@ private:
     bool m_IsResized{false};
 
     std::vector<VulkanImage> m_Images;
+    std::vector<VulkanModel> m_Models;
 
     // TODO: create memoryMenegmentClass or move to VulkanSynchronization
     std::vector<VkSemaphore> m_AvailableSemaphores;

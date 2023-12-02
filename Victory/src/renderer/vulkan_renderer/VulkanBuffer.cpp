@@ -19,28 +19,14 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
+#include "VulkanModel.h"
 
 const std::string MODEL_PATH = "viking_room.obj";
 const std::string TEXTURE_PATH = "viking_room.png";
 
-std::vector<VertexData> vertices = {
-    // {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.f, 0.f}},
-    // {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.f, 0.f}},
-    // {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.f, 1.f}},
-    // {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.f, 1.f}},
+std::vector<VertexData> vertices;
 
-    // {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    // {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    // {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    // {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-
-std::vector<uint16_t> indices = {
-    // 0, 1, 2, 2, 3, 0,
-    // 4, 5, 6, 6, 7, 4
-};
+std::vector<uint16_t> indices;
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -53,109 +39,6 @@ VulkanBuffer::VulkanBuffer(VulkanContext *context_, VulkanPipeline* pipeline_, V
     , m_Pipeline{pipeline_}
     , m_FrameBuffer{frameBuffer_}
     , m_Swapchain{swapchain_} {
-}
-
-bool VulkanBuffer::LoadModel() {
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
-        throw std::runtime_error(warn + err);
-    }
-
-    std::unordered_map<VertexData, uint32_t> uniqueVertices{};
-
-    indices.reserve(attrib.vertices.size());
-    vertices.reserve(attrib.vertices.size());
-
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            VertexData vertex{};
-
-            vertex.position = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
-            };
-
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-
-            vertex.color = {1.f, 1.f, 1.f};
-
-            if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.emplace_back(vertex);
-            }
-
-            indices.emplace_back(uniqueVertices[vertex]);
-        }
-    }
-    return true;
-}
-
-bool VulkanBuffer::CreateVertexBuffer() {
-    VkDeviceSize bufferSize = static_cast<uint64_t>(sizeof(vertices[0]) * vertices.size());
-
-    VkBuffer stagingBuffer{VK_NULL_HANDLE};
-    VkDeviceMemory stagingBufferMemory{VK_NULL_HANDLE};
-    CreateBufferSettings bufferSettings{};
-    bufferSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    bufferSettings.Size = bufferSize;
-    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    CreateBuffer(bufferSettings, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, sizeof(vertices[0]) * vertices.size(), 0, &data);
-        memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(m_Context->GetDevice(), stagingBufferMemory);
-
-    bufferSettings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    bufferSettings.Size = bufferSize;
-    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-    CreateBuffer(bufferSettings, m_VertexBuffer, m_VertexBufferMemory);
-    
-    CopyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
-
-    vkDestroyBuffer(m_Context->GetDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(m_Context->GetDevice(), stagingBufferMemory, nullptr);
-    return true;
-}
-
-bool VulkanBuffer::CreateIndexBuffer() {
-    VkDeviceSize bufferSize = static_cast<uint64_t>(sizeof(indices[0]) * indices.size());
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    CreateBufferSettings bufferSettings{};
-    bufferSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    bufferSettings.Size = bufferSize;
-    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    CreateBuffer(bufferSettings, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(m_Context->GetDevice(), stagingBufferMemory);
-
-    bufferSettings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    bufferSettings.Size = bufferSize;
-    bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-    CreateBuffer(bufferSettings, m_IndexBuffer, m_IndexBufferMemory);
-
-    CopyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
-
-    vkDestroyBuffer(m_Context->GetDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(m_Context->GetDevice(), stagingBufferMemory, nullptr);
-    return true;
 }
 
 bool VulkanBuffer::CreateUniformBuffers(uint32_t maxFrames_) {
@@ -171,7 +54,7 @@ bool VulkanBuffer::CreateUniformBuffers(uint32_t maxFrames_) {
     m_UniformBuffersMapped.resize(maxFrames_);
 
     for (size_t i{0}; i < maxFrames_; ++i) {
-        CreateBuffer(bufferSettings, m_UniformBuffers[i], m_UniformBuffersMemory[i]);
+        BindBuffer(m_Context, bufferSettings, m_UniformBuffers[i], m_UniformBuffersMemory[i]);
         vkMapMemory(m_Context->GetDevice(), m_UniformBuffersMemory[i], 0, bufferSize, 0, &m_UniformBuffersMapped[i]);
     }
     return true;
@@ -263,8 +146,6 @@ void VulkanBuffer::FreeMemory()
     for (auto&& memory : m_UniformBuffersMemory) {
         vkFreeMemory(m_Context->GetDevice(), memory, nullptr);
     }
-    vkFreeMemory(m_Context->GetDevice(), m_IndexBufferMemory, nullptr);
-    vkFreeMemory(m_Context->GetDevice(), m_VertexBufferMemory, nullptr);
 }
 
 void VulkanBuffer::CleanupVertexBuffer() {
@@ -272,57 +153,12 @@ void VulkanBuffer::CleanupVertexBuffer() {
     for (auto&& buffer : m_UniformBuffers) {
         vkDestroyBuffer(m_Context->GetDevice(), buffer, nullptr);
     }
-    vkDestroyBuffer(m_Context->GetDevice(), m_IndexBuffer, nullptr);
-    vkDestroyBuffer(m_Context->GetDevice(), m_VertexBuffer, nullptr);
 }
 
 void VulkanBuffer::CleanupAll() {
     vkDestroyDescriptorPool(m_Context->GetDevice(), m_DescriptorPool, nullptr);
     CleanupVertexBuffer();
     FreeMemory();
-}
-
-uint32_t VulkanBuffer::GetIndicesCount() const {
-    return static_cast<uint32_t>(indices.size());
-}
-bool VulkanBuffer::CreateBuffer(const CreateBufferSettings &bufferSettings_, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_) {
-    VkBufferCreateInfo bufferCI{};
-    bufferCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferCI.size = bufferSettings_.Size;
-    bufferCI.usage = bufferSettings_.Usage;
-    bufferCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(m_Context->GetDevice(), &bufferCI, nullptr, &buffer_) != VK_SUCCESS) {
-        return false;
-    }
-
-    VkMemoryRequirements memRequirements{};
-    vkGetBufferMemoryRequirements(m_Context->GetDevice(), buffer_, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = m_Context->FindMemoryType(memRequirements.memoryTypeBits, bufferSettings_.Properties);
-    if (allocInfo.memoryTypeIndex == UINT32_MAX) {
-        return false;
-    }
-
-    vkAllocateMemory(m_Context->GetDevice(), &allocInfo, nullptr, &bufferMemory_);
-
-    return vkBindBufferMemory(m_Context->GetDevice(), buffer_, bufferMemory_, 0) == VK_SUCCESS;
-}
-
-void VulkanBuffer::CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_) {
-    VkCommandBuffer commandBuffer = m_FrameBuffer->BeginSingleTimeCommands();
-    {
-        VkBufferCopy copyRegion{};
-        copyRegion.srcOffset = 0;
-        copyRegion.dstOffset = 0;
-        copyRegion.size = size_;
-
-        vkCmdCopyBuffer(commandBuffer, srcBuffer_, dstBuffer_, 1, &copyRegion);
-    }
-    m_FrameBuffer->EndSingleTimeCommands(commandBuffer);
 }
 
 bool VulkanBuffer::HasStencilComponent(VkFormat format_) {

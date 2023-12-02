@@ -17,7 +17,6 @@ public:
 
     VulkanImage(VulkanContext* context_, 
         VulkanFrameBuffer* frameBuffer_);
-    ~VulkanImage();
 
     // Give buffer settings?
     bool LoadTexture(std::string&& path_, CreateImageSettings& settings_);

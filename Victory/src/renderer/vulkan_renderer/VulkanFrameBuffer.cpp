@@ -12,15 +12,10 @@
 #include "VulkanImage.h"
 
 VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
-    VulkanPipeline* pipeline_, VulkanBuffer* buffer_) 
+    VulkanPipeline* pipeline_) 
     : m_Context{context_}
     , m_Swapchain{swapchain_}
-    , m_Pipeline{pipeline_}
-    , m_Buffer{buffer_} {
-}
-
-void VulkanFrameBuffer::SetVulkanBuffer(VulkanBuffer *buffer_) {
-    m_Buffer = buffer_;
+    , m_Pipeline{pipeline_} {
 }
 
 bool VulkanFrameBuffer::CreateFrameBuffers() {
@@ -129,7 +124,7 @@ void VulkanFrameBuffer::CleanupFrameBuffers() {
 }
 
 void VulkanFrameBuffer::CleanupDepthResources() {
-    delete m_DepthImage;
+    m_DepthImage->CleanupAll();
 }
 
 void VulkanFrameBuffer::CleanupCommandPool()
@@ -138,7 +133,7 @@ void VulkanFrameBuffer::CleanupCommandPool()
 }
 
 void VulkanFrameBuffer::CleanupAll() {
-    m_DepthImage->CleanupAll();
+    CleanupDepthResources();
     CleanupCommandPool();
     CleanupFrameBuffers();
 }

@@ -10,8 +10,7 @@ class VulkanFrameBuffer {
 public:
 
     VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
-        VulkanPipeline* pipeline_, VulkanBuffer* buffer_);
-    void SetVulkanBuffer(VulkanBuffer* buffer_);
+        VulkanPipeline* pipeline_);
 
     bool CreateFrameBuffers();
     bool CreateCommandPool();

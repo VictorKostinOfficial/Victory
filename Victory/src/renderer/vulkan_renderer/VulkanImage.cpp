@@ -5,7 +5,7 @@
 
 #include "VulkanContext.h"
 #include "VulkanFrameBuffer.h"
-#include "VulkanBuffer2.h"
+#include "VulkanModel.h"
 
 #include <stdexcept>
 
@@ -15,10 +15,6 @@
 VulkanImage::VulkanImage(VulkanContext *context_, VulkanFrameBuffer* frameBuffer_) 
     : m_Context{context_}, m_FrameBuffer{frameBuffer_} {
 }
-
-VulkanImage::~VulkanImage() {
-    CleanupAll();
-} 
 
 // TODO: CreateTextureImage
 bool VulkanImage::LoadTexture(std::string&& path_, CreateImageSettings& settings_) {
@@ -37,7 +33,7 @@ bool VulkanImage::LoadTexture(std::string&& path_, CreateImageSettings& settings
     bufferSettings.Size = imageSize;
     bufferSettings.Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    CreateBuffer(m_Context, bufferSettings, stagingBuffer, stagingBufferMemory);
+    BindBuffer(m_Context, bufferSettings, stagingBuffer, stagingBufferMemory);
         
     void* data;
     vkMapMemory(m_Context->GetDevice(), stagingBufferMemory, 0, imageSize, 0, &data);

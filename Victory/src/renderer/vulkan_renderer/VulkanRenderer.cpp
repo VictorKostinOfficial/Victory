@@ -14,6 +14,7 @@
 #include "VulkanFrameBuffer.h"
 #include "VulkanUtils.h"
 #include "VulkanImage.h"
+#include "VulkanModel.h"
 
 #define CHK_RESULT(RESULT, MESSAGE) \
     if (RESULT == false) { \
@@ -89,10 +90,8 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanPipeline->CreatePipeline(),
         "Pipeline was not created!");
 
-    // TODO: Get rid of cross ref
-    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline, m_VulkanBuffer);
+    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline);
     m_VulkanBuffer = new VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain);
-    m_VulkanFrameBuffer->SetVulkanBuffer(m_VulkanBuffer);
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(),
         "Command pool was not created!");
@@ -103,8 +102,17 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
 
-    CHK_RESULT(m_VulkanBuffer->LoadModel(),
-        "Model was not loaded");
+    // CHK_RESULT(m_VulkanBuffer->LoadModel(),
+    //     "Model was not loaded");
+    // CHK_RESULT(m_VulkanBuffer->CreateVertexBuffer(),
+    //     "Vertex buffer was not created");
+    // CHK_RESULT(m_VulkanBuffer->CreateIndexBuffer(),
+    //     "Index buffer was not created");
+
+    m_Models.push_back(VulkanModel(m_VulkanContext, m_VulkanFrameBuffer));
+    m_Models[0].LoadModel("viking_room.obj");
+    m_Models[0].CreateVertexBuffer();
+    m_Models[0].CreateIndexBuffer();
 
     // CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
     //     "Texture image was not created");
@@ -125,13 +133,6 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_Images[0].LoadTexture("viking_room.png", settings);
     m_Images[0].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
     m_Images[0].CreateSampler();
-
-
-    CHK_RESULT(m_VulkanBuffer->CreateVertexBuffer(),
-        "Vertex buffer was not created");
-
-    CHK_RESULT(m_VulkanBuffer->CreateIndexBuffer(),
-        "Index buffer was not created");
 
     CHK_RESULT(m_VulkanBuffer->CreateUniformBuffers(MAX_FRAMES_IN_FLIGHT),
         "Uniform buffer was not created");
@@ -232,8 +233,8 @@ void VulkanRenderer::RecordCommandBuffer() {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipeline());
 
         // TODO: split vertex/index data from m_Buffer
-        std::vector<VkBuffer> vertexBuffers{m_VulkanBuffer->GetVertexBuffer()};
-        VkBuffer indexBuffer{m_VulkanBuffer->GetIndexBuffer()};
+        std::vector<VkBuffer> vertexBuffers{m_Models[0].GetVertexBuffer()};
+        VkBuffer indexBuffer{m_Models[0].GetIndexBuffer()};
         std::vector<VkDeviceSize> offsets{0};
 
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
@@ -253,7 +254,7 @@ void VulkanRenderer::RecordCommandBuffer() {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipelineLayout(), 
             0, 1, &m_VulkanBuffer->GetDescriptorSet(m_CurrentFrame), 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, m_VulkanBuffer->GetIndicesCount(), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, m_Models[0].GetIndexCount(), 1, 0, 0, 0);
 
     }
     vkCmdEndRenderPass(commandBuffer);
@@ -313,6 +314,10 @@ void VulkanRenderer::Destroy() {
 
     for (auto&& image : m_Images) {
         image.CleanupAll();
+    }
+
+    for (auto&& model : m_Models) {
+        model.CleanupAll();
     }
 
     for (size_t i{0}, n = m_AvailableSemaphores.size(); i < n; ++i) {

@@ -5,22 +5,11 @@ class VulkanFrameBuffer;
 class VulkanSwapchain;
 class VulkanPipeline;
 
-struct CreateBufferSettings {
-    VkDeviceSize Size;
-    VkBufferUsageFlags Usage;
-    VkMemoryPropertyFlags Properties;
-};
-
 class VulkanBuffer
 {
 public:
     VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, 
         VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
-
-    bool LoadModel();
-
-    bool CreateVertexBuffer();
-    bool CreateIndexBuffer();
 
     bool CreateUniformBuffers(uint32_t maxFrames_);
     bool CreateDescriptorPool(uint32_t maxFrames_);
@@ -32,25 +21,11 @@ public:
     void CleanupVertexBuffer();
     void CleanupAll();
 
-    inline VkBuffer GetVertexBuffer() const {
-        return m_VertexBuffer;
-    }
-
-    inline VkBuffer GetIndexBuffer() const {
-        return m_IndexBuffer;
-    }
-
     inline const VkDescriptorSet& GetDescriptorSet(uint32_t imageIndex_) const {
         return m_DescriptorSets[imageIndex_];
     }
 
-    uint32_t GetIndicesCount() const;
-
 private:
-
-    bool CreateBuffer(const CreateBufferSettings& bufferSettings_, VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
-
-    void CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_);
 
     bool HasStencilComponent(VkFormat format_);
 
@@ -60,11 +35,6 @@ private:
     VulkanPipeline* m_Pipeline;
     VulkanFrameBuffer* m_FrameBuffer;
     VulkanSwapchain* m_Swapchain;
-
-    VkBuffer m_VertexBuffer{VK_NULL_HANDLE};
-    VkDeviceMemory m_VertexBufferMemory{VK_NULL_HANDLE};
-    VkBuffer m_IndexBuffer{VK_NULL_HANDLE};
-    VkDeviceMemory m_IndexBufferMemory{VK_NULL_HANDLE};
 
     VkDescriptorPool m_DescriptorPool{VK_NULL_HANDLE};
     std::vector<VkDescriptorSet> m_DescriptorSets;
