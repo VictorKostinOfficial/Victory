@@ -112,10 +112,10 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_Models[0].LoadModel("viking_room.obj");
     m_Models[0].CreateVertexBuffer();
     m_Models[0].CreateIndexBuffer();
-    m_Models.push_back(VulkanModel(m_VulkanContext, m_VulkanFrameBuffer));
-    m_Models[1].LoadModel("hat_luffy.obj");
-    m_Models[1].CreateVertexBuffer();
-    m_Models[1].CreateIndexBuffer();
+    // m_Models.push_back(VulkanModel(m_VulkanContext, m_VulkanFrameBuffer));
+    // m_Models[1].LoadModel("hat_luffy.obj");
+    // m_Models[1].CreateVertexBuffer();
+    // m_Models[1].CreateIndexBuffer();
 
     // CHK_RESULT(m_VulkanBuffer->CreateTextureImage(), 
     //     "Texture image was not created");
@@ -133,13 +133,13 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_Images[0].LoadTexture("viking_room.png", settings);
     m_Images[0].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
     m_Images[0].CreateSampler();
-    m_Images.push_back(VulkanImage(m_VulkanContext, m_VulkanFrameBuffer));
-    m_Images[1].LoadTexture("hat_luffy.png", settings);
-    m_Images[1].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-    m_Images[1].CreateSampler();
+    // m_Images.push_back(VulkanImage(m_VulkanContext, m_VulkanFrameBuffer));
+    // m_Images[1].LoadTexture("hat_luffy.png", settings);
+    // m_Images[1].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    // m_Images[1].CreateSampler();
 
     m_Buffers.push_back(VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain));
-    m_Buffers.push_back(VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain));
+    // m_Buffers.push_back(VulkanBuffer(m_VulkanContext, m_VulkanPipeline, m_VulkanFrameBuffer, m_VulkanSwapchain));
     for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
         CHK_RESULT(m_Buffers[i].CreateUniformBuffers(MAX_FRAMES_IN_FLIGHT),
             "Uniform buffer was not created");
