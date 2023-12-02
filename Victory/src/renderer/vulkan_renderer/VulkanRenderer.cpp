@@ -126,12 +126,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 
     m_Images.push_back(VulkanImage(m_VulkanContext, m_VulkanFrameBuffer));
     CreateImageSettings settings{};
-    // Calculted in LoadTexture
-    // imageSettings.Width = static_cast<uint32_t>(texWidth);
-    // imageSettings.Height = static_cast<uint32_t>(texHeight);
     settings.Format = VK_FORMAT_R8G8B8A8_SRGB;
     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
-    settings.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    settings.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     m_Images[0].LoadTexture("viking_room.png", settings);
     m_Images[0].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);

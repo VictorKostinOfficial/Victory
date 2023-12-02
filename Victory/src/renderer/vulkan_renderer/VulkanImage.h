@@ -49,16 +49,17 @@ public:
 
 private:
 
-    void CopyBufferToImage(VkBuffer buffer_, VkImage image_, 
-        uint32_t width_, uint32_t height_);
-
-    void TransitionImageLayout(VkImage image_, VkImageLayout oldLayout_, 
-        VkImageLayout newLayout_);
+    void CopyBufferToImage(VkBuffer stagingBuffer_);
+    void TransitionImageLayout(VkImageLayout oldLayout_, VkImageLayout newLayout_);
+    void GenerateMipmaps(VkFormat imageFormat_);
 
 private:
 
     VulkanContext* m_Context;
     VulkanFrameBuffer* m_FrameBuffer;
+
+    uint32_t m_Width, m_Height;
+    uint32_t m_MipLevels{1};
 
     VkImage m_Image{VK_NULL_HANDLE};
     VkImageView m_ImageView{VK_NULL_HANDLE};

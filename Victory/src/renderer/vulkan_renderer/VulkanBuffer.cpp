@@ -132,9 +132,9 @@ void VulkanBuffer::UpdateUniformBuffer(uint32_t imageIndex_) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.f, 0.f, 1.f));
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(10.0f), glm::vec3(0.f, 0.f, 1.f));
     ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), m_Swapchain->GetExtent().width / (float) m_Swapchain->GetExtent().height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), m_Swapchain->GetExtent().width / static_cast<float>(m_Swapchain->GetExtent().height), 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 
     memcpy(m_UniformBuffersMapped[imageIndex_], &ubo, sizeof(ubo));

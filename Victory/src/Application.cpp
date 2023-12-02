@@ -35,6 +35,7 @@ void Application::Run() {
             s_Renderer->RecordCommandBuffer();
             s_Renderer->EndFrame();
         }
+        // break;
     }
     s_Renderer->Destroy();
 }
