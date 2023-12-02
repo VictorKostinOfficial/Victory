@@ -31,7 +31,7 @@ bool VulkanFrameBuffer::CreateFrameBuffers() {
     m_FrameBuffers.resize(imageViews.size());
 
     for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
-        std::array<VkImageView, 2> attachmetns{imageViews[i], m_DepthImage->GetImageView()};
+        std::array<VkImageView, 3> attachmetns{m_ColorImage->GetImageView(), m_DepthImage->GetImageView(), imageViews[i]};
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachmetns.size());
         frameBufferCI.pAttachments = attachmetns.data();
 
@@ -73,12 +73,30 @@ bool VulkanFrameBuffer::CreateDepthResources() {
     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
     settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    // TODO: Dynamic change msaa
+    settings.SampleCount = m_Context->GetSampleCount();
 
     m_DepthImage->CreateImage(settings);
     m_DepthImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
     return true;
 }
 
+bool VulkanFrameBuffer::CreateColorResources() {
+    m_ColorImage = new VulkanImage(m_Context, this);
+    CreateImageSettings settings{};
+    settings.Width = m_Swapchain->GetExtent().width;
+    settings.Height = m_Swapchain->GetExtent().height;
+    settings.Format = m_Swapchain->GetSurfaceFormat().format;
+    settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+    settings.Usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    // TODO: Dynamic change msaa
+    settings.SampleCount = m_Context->GetSampleCount();
+
+    m_ColorImage->CreateImage(settings);
+    m_ColorImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    return true;
+}
 
 VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -126,12 +144,17 @@ void VulkanFrameBuffer::CleanupDepthResources() {
     m_DepthImage->CleanupAll();
 }
 
+void VulkanFrameBuffer::CleanupColorResources() {
+    m_ColorImage->CleanupAll();
+}
+
 void VulkanFrameBuffer::CleanupCommandPool()
 {
     vkDestroyCommandPool(m_Context->GetDevice(), m_CommandPool, nullptr);
 }
 
 void VulkanFrameBuffer::CleanupAll() {
+    CleanupColorResources();
     CleanupDepthResources();
     CleanupCommandPool();
     CleanupFrameBuffers();

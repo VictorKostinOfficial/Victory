@@ -42,6 +42,7 @@ private:
     VkSurfaceFormatKHR m_SurfaceFormat;
     VkPresentModeKHR m_PresentMode;
 
+    // TODO: make list of VulkanImages
     std::vector<VkImage> m_Images;
     std::vector<VkImageView> m_ImageViews;
     std::vector<VkFramebuffer> m_FrameBuffer;

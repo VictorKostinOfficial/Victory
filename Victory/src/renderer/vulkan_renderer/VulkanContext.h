@@ -39,10 +39,15 @@ public:
         return m_QueueIndexes;
     }
 
+    inline const VkSampleCountFlagBits GetSampleCount() const {
+        return m_MSAASamples;
+    }
+
 private:
 
     void CollectLayers(std::vector<const char*>& layers_);
     void CollectExtensions(std::vector<const char*>& extensions_);
+    VkSampleCountFlagBits GetMaxUsableSampleCount();
 
     std::vector<const char*> m_DeviceExtensions {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME 
@@ -58,6 +63,7 @@ private:
     VkDevice m_Device{VK_NULL_HANDLE};
 
     QueueIndexes m_QueueIndexes;
+    VkSampleCountFlagBits m_MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
 #ifndef NDEBUG
     VkDebugUtilsMessengerEXT m_DebugMessenger{VK_NULL_HANDLE};

@@ -33,7 +33,6 @@ Renderer* VulkanRenderer::CreateRenderer() {
 }
 
 void VulkanRenderer::Initialize(const char *applicationName_){
-    printf("\nVulkanRenderer::Initialize");
     if (!glfwInit()) {
         throw std::runtime_error("GLFW was not created!");
     };
@@ -98,6 +97,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(),
         "Depth resources were not created");
 
+    CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(),
+        "Color resources were not created");
+
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
 
@@ -130,6 +132,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
     settings.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    settings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
     m_Images[0].LoadTexture("viking_room.png", settings);
     m_Images[0].CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
     m_Images[0].CreateSampler();
@@ -169,18 +172,14 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 }
 
 bool VulkanRenderer::IsRunning() {
-    printf("\nVulkanRenderer::IsRunning");
     return !glfwWindowShouldClose(m_Window);
 }
 
 void VulkanRenderer::PollEvents() {
-    printf("\nVulkanRenderer::PollEvents");
     glfwPollEvents();
 }
 
 bool VulkanRenderer::Resize() {
-    printf("\nVulkanRenderer::Resize");
-
     VkDevice device = m_VulkanContext->GetDevice();
     CHK_RESULT((vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) == VK_SUCCESS),
         "Wait for fences = false!");
@@ -203,8 +202,7 @@ bool VulkanRenderer::Resize() {
 }
 
 void VulkanRenderer::BeginFrame() {
-    printf("\nVulkanRenderer::BeginFrame");
-
+    printf("\n-------------- BEGIN FRAME -------------");
     for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
         m_Buffers[i].UpdateUniformBuffer(m_CurrentFrame);
     }
@@ -212,8 +210,6 @@ void VulkanRenderer::BeginFrame() {
 }
 
 void VulkanRenderer::RecordCommandBuffer() {
-    printf("\nVulkanRenderer::RecordCommandBuffer");
-
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
     vkResetCommandBuffer(commandBuffer, 0);
 
@@ -273,8 +269,6 @@ void VulkanRenderer::RecordCommandBuffer() {
 }
 
 void VulkanRenderer::EndFrame() {
-    printf("\nVulkanRenderer::EndFrame");
-
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
     const std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -352,7 +346,6 @@ void VulkanRenderer::Destroy() {
     delete m_VulkanPipeline;
     delete m_VulkanSwapchain;
     delete m_VulkanContext;
-    printf("\nVulkanRenderer::Destroy\n");
 }
 
 void VulkanRenderer::SetIsResized(bool isResized_) {
@@ -374,6 +367,7 @@ void VulkanRenderer::RecreateSwapchain() {
 
     m_VulkanSwapchain->CleanupSwapchain();
     m_VulkanSwapchain->CleanupImageViews();
+    m_VulkanFrameBuffer->CleanupColorResources();
     m_VulkanFrameBuffer->CleanupDepthResources();
     m_VulkanFrameBuffer->CleanupFrameBuffers();
 
@@ -385,6 +379,9 @@ void VulkanRenderer::RecreateSwapchain() {
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(), 
         "Depth Resources were not created!");
+
+    CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(), 
+        "Color Resources were not created!");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");

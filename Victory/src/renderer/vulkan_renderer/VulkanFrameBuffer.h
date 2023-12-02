@@ -15,12 +15,16 @@ public:
     bool CreateFrameBuffers();
     bool CreateCommandPool();
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
+
     bool CreateDepthResources();
+    bool CreateColorResources();
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
 
     void CleanupDepthResources();
+    void CleanupColorResources();
+
     void CleanupCommandPool();
     void CleanupFrameBuffers();
     void CleanupAll();
@@ -49,4 +53,5 @@ private:
     std::vector<VkCommandBuffer> m_CommandBuffers;
 
     VulkanImage* m_DepthImage;
+    VulkanImage* m_ColorImage;
 };

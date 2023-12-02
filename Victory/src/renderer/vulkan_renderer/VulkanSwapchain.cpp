@@ -41,9 +41,6 @@ bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
         imageCount = capabilities.maxImageCount;
     }
 
-    m_Images.reserve(imageCount);
-    m_ImageViews.reserve(imageCount);
-
     VkSwapchainCreateInfoKHR swapchainCI{};
     swapchainCI.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCI.minImageCount = imageCount;

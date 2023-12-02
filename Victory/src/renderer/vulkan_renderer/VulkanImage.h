@@ -10,6 +10,7 @@ struct CreateImageSettings {
     VkImageTiling Tiling;
     VkImageUsageFlags Usage;
     VkMemoryPropertyFlags Properties;
+    VkSampleCountFlagBits SampleCount;
 };
 
 class VulkanImage {

@@ -62,6 +62,9 @@ bool VulkanImage::LoadTexture(std::string&& path_, CreateImageSettings& settings
 }
 
 bool VulkanImage::CreateImage(const CreateImageSettings &settings_) {
+    m_Width = settings_.Width;
+    m_Height = settings_.Height;
+
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -75,7 +78,7 @@ bool VulkanImage::CreateImage(const CreateImageSettings &settings_) {
     imageInfo.tiling = settings_.Tiling;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = settings_.Usage;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.samples = settings_.SampleCount;
     imageInfo.flags = 0;
 
     vkCreateImage(m_Context->GetDevice(), &imageInfo, nullptr, &m_Image);

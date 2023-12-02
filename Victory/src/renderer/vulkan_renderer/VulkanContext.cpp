@@ -64,6 +64,7 @@ bool VulkanContext::PickPhysicalDevice(VkSurfaceKHR surface_) {
         return false;
     }
 
+    m_MSAASamples = GetMaxUsableSampleCount();
     return true;
 }
 
@@ -86,6 +87,7 @@ bool VulkanContext::CreateLogicalDevice() {
     std::vector<const char*> layers{};
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = VK_TRUE;
+    features.sampleRateShading = VK_TRUE;
 
     VkDeviceCreateInfo deviceCI{};
     deviceCI.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -199,6 +201,21 @@ void VulkanContext::CollectExtensions(std::vector<const char*>& extensions_) {
     for (uint32_t i{0}; i < glfwExtensionCount; ++i) {
         extensions_.emplace_back(glfwExtensions[i]);
     }
+}
+
+VkSampleCountFlagBits VulkanContext::GetMaxUsableSampleCount() {
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
 }
 
 uint32_t VulkanContext::RateDeviceSuitability(VkPhysicalDevice phDevice_) {
