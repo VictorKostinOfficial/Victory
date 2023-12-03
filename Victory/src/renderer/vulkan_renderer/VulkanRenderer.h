@@ -44,6 +44,7 @@ private:
     virtual ~VulkanRenderer() = default;
 
     void RecreateSwapchain();
+    bool InitImGui();
 
 private: 
 
@@ -53,7 +54,6 @@ private:
     VulkanSwapchain* m_VulkanSwapchain;
     VulkanPipeline* m_VulkanPipeline;
     VulkanFrameBuffer* m_VulkanFrameBuffer;
-    // VulkanBuffer* m_VulkanBuffer;
 
     uint32_t m_CurrentFrame{0};
     uint32_t m_ImageIndex{0};

@@ -27,6 +27,10 @@ public:
         return m_DescriptorSets[imageIndex_];
     }
 
+    inline const VkDescriptorPool& GetDescriptorPool() const {
+        return m_DescriptorPool;
+    }
+
 private:
 
     bool HasStencilComponent(VkFormat format_);

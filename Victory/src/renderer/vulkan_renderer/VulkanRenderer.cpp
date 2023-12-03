@@ -16,6 +16,18 @@
 #include "VulkanImage.h"
 #include "VulkanModel.h"
 
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+// #include <imconfig.h>
+// #include <imgui_tables.cpp>
+// #include <imgui_internal.h>
+// #include <imgui.cpp>
+// #include <imgui_draw.cpp>
+// #include <imgui_widgets.cpp>
+// #include <imgui_demo.cpp>
+// #include <backends/imgui_impl_glfw.cpp>
+// #include <backends/imgui_impl_vulkan.h>
+
 #define CHK_RESULT(RESULT, MESSAGE) \
     if (RESULT == false) { \
         throw std::runtime_error(MESSAGE); \
@@ -169,6 +181,8 @@ void VulkanRenderer::Initialize(const char *applicationName_){
         CHK_RESULT(VulkanUtils::CreateFence(m_VulkanContext->GetDevice(), &m_InFlightFences[i]),
             "Fence was not created!");
     }
+
+    InitImGui();
 }
 
 bool VulkanRenderer::IsRunning() {
@@ -202,19 +216,18 @@ bool VulkanRenderer::Resize() {
 }
 
 void VulkanRenderer::BeginFrame() {
-    printf("\n-------------- BEGIN FRAME -------------");
+    // printf("\n-------------- BEGIN FRAME -------------");
     for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
         m_Buffers[i].UpdateUniformBuffer(m_CurrentFrame);
     }
-    vkResetFences(m_VulkanContext->GetDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
 }
 
 void VulkanRenderer::RecordCommandBuffer() {
     VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
-    vkResetCommandBuffer(commandBuffer, 0);
 
     VkCommandBufferBeginInfo commandBufferBI{};
     commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    commandBufferBI.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     vkBeginCommandBuffer(commandBuffer, &commandBufferBI);
 
@@ -262,6 +275,16 @@ void VulkanRenderer::RecordCommandBuffer() {
                 0, 1, &m_Buffers[i].GetDescriptorSet(m_CurrentFrame), 0, nullptr);
 
             vkCmdDrawIndexed(commandBuffer, m_Models[i].GetIndexCount(), 1, 0, 0, 0);
+
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            ImGui::ShowDemoWindow();
+
+            ImGui::Render();
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer, nullptr);
+            // ImGui::UpdatePlatformWindows();
         }
     }
     vkCmdEndRenderPass(commandBuffer);
@@ -269,6 +292,8 @@ void VulkanRenderer::RecordCommandBuffer() {
 }
 
 void VulkanRenderer::EndFrame() {
+    vkResetFences(m_VulkanContext->GetDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
+
     const std::vector<VkSemaphore> waitSemaphores{m_AvailableSemaphores[m_CurrentFrame]};
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
     const std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -315,6 +340,10 @@ void VulkanRenderer::Destroy() {
     VkDevice device = m_VulkanContext->GetDevice();
 
     vkDeviceWaitIdle(device);
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     for (auto&& image : m_Images) {
         image.CleanupAll();
@@ -385,4 +414,49 @@ void VulkanRenderer::RecreateSwapchain() {
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
         "Frame buffers were not created!");
+}
+
+void check_vk_result(VkResult err)
+{
+	if (err == 0)
+		return;
+	fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+	if (err < 0)
+		abort();
+}
+
+bool VulkanRenderer::InitImGui() {
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+    ImGuiStyle& style = ImGui::GetStyle();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		style.WindowRounding = 0.0f;
+		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+	}
+
+    ImGui_ImplGlfw_InitForVulkan(m_Window, true);
+    ImGui_ImplVulkan_InitInfo info;
+    info.Instance = m_VulkanContext->GetInstance();
+    info.PhysicalDevice = m_VulkanContext->GetPhysicalDevice();
+    info.Device = m_VulkanContext->GetDevice();
+    info.QueueFamily = m_VulkanContext->GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
+    info.Queue = m_VulkanContext->GetQueue(QueueIndex::eGraphics);
+    info.PipelineCache = 0;
+    info.DescriptorPool = m_Buffers[0].GetDescriptorPool();
+    info.Subpass = 0;
+    info.MinImageCount = MAX_FRAMES_IN_FLIGHT;
+    info.ImageCount = m_VulkanSwapchain->GetImageCount();
+    info.MSAASamples = m_VulkanContext->GetSampleCount();
+    info.UseDynamicRendering = false;
+    info.Allocator = 0;
+    info.CheckVkResultFn = check_vk_result;
+    ImGui_ImplVulkan_Init(&info, m_VulkanPipeline->GetRenderPass());
+
+    ImGui_ImplVulkan_CreateFontsTexture();
+    return true;
 }

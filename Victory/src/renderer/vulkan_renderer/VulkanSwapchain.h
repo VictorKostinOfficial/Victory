@@ -24,6 +24,9 @@ public:
     VkSurfaceFormatKHR GetSurfaceFormat() const;
     VkExtent2D GetExtent() const;
     const std::vector<VkImageView>& GetImageViews() const;
+    inline const uint32_t GetImageCount() const {
+        return static_cast<uint32_t>(m_ImageViews.size());
+    }
 
 private:
 
