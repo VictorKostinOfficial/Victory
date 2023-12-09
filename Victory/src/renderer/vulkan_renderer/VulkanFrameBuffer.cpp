@@ -18,10 +18,10 @@ VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* s
     , m_Pipeline{pipeline_} {
 }
 
-bool VulkanFrameBuffer::CreateFrameBuffers() {
+bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, bool isImGui_) {
     VkFramebufferCreateInfo frameBufferCI{};
     frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    frameBufferCI.renderPass = m_Pipeline->GetRenderPass();
+    frameBufferCI.renderPass = pass_;
     frameBufferCI.width = m_Swapchain->GetExtent().width;
     frameBufferCI.height = m_Swapchain->GetExtent().height;
     frameBufferCI.layers = 1;
@@ -29,11 +29,21 @@ bool VulkanFrameBuffer::CreateFrameBuffers() {
     auto&& device = m_Context->GetDevice();
     auto&& imageViews = m_Swapchain->GetImageViews();
     m_FrameBuffers.resize(imageViews.size());
+    // auto&& images = m_Swapchain->GetImages();
+    // m_FrameBuffers.resize(images.size());
 
     for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
-        std::array<VkImageView, 3> attachmetns{m_ColorImage->GetImageView(), m_DepthImage->GetImageView(), imageViews[i]};
-        frameBufferCI.attachmentCount = static_cast<uint32_t>(attachmetns.size());
-        frameBufferCI.pAttachments = attachmetns.data();
+
+        std::vector<VkImageView> attachments;
+        if (isImGui_) {
+            attachments.emplace_back(imageViews[i]);
+        } else {
+            attachments.emplace_back(m_ColorImage->GetImageView());
+            attachments.emplace_back(m_DepthImage->GetImageView());
+            attachments.emplace_back(imageViews[i]);
+        }
+        frameBufferCI.attachmentCount = static_cast<uint32_t>(attachments.size());
+        frameBufferCI.pAttachments = attachments.data();
 
         if (vkCreateFramebuffer(device, &frameBufferCI, nullptr, &m_FrameBuffers[i]) != VK_SUCCESS) {
             printf("\nFrame buffer %zu, was not created!", i);

@@ -57,7 +57,7 @@ bool VulkanImage::LoadTexture(std::string&& path_, CreateImageSettings& settings
     vkDestroyBuffer(m_Context->GetDevice(), stagingBuffer, nullptr);
     vkFreeMemory(m_Context->GetDevice(), stagingBufferMemory, nullptr);
 
-    GenerateMipmaps(VK_FORMAT_R8G8B8A8_SRGB);
+    GenerateMipmaps(VK_FORMAT_R8G8B8A8_UNORM);
     return true;
 }
 

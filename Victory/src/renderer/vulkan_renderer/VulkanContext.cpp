@@ -5,6 +5,7 @@
 
 #include <GLFW/glfw3.h>
 #include <string>
+#include <iostream>
 
 bool VulkanContext::CreateInstance(const char* applicationName_)
 {
@@ -111,7 +112,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback(
     (void)messageSeverity;
     (void)messageType;
     (void)pUserData;
-    printf("\nValidation layer: %s", pCallbackData->pMessage);
+    std::string check = pCallbackData->pMessage;
+    std::cout << check << std::endl;
+    // printf("\nValidation layer: %s", check.c_str());
     return VK_FALSE;
 }
 

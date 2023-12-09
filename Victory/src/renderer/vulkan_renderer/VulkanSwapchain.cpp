@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "VulkanSwapchain.h"
+// #include "VulkanImage.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -79,6 +80,19 @@ bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
         return false;
     }
 
+    // m_Images.resize(imageCount, VulkanImage(m_Context, m_frameb));
+    // for (auto&& image : m_Images) {
+    //     CreateImageSettings settings{};
+    //     // settings.Format = VK_FORMAT_R8G8B8A8_SRGB;
+    //     settings.Format = VK_FORMAT_B8G8R8A8_UNORM;
+    //     settings.Tiling = VK_IMAGE_TILING_LINEAR;
+    //     settings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    //     settings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    //     settings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
+    //     image.CreateImage(settings);
+    //     image.CreateImageView(VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+    // }
+
     m_Images.resize(imageCount);
     if (vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, m_Images.data()) != VK_SUCCESS) {
         printf("\nSwapchain images were not geted!");
@@ -127,7 +141,17 @@ void VulkanSwapchain::CleanupImageViews() {
     }
 }
 
-void VulkanSwapchain::CleanupSwapchain() {
+void VulkanSwapchain::CleanupImages() {
+    auto&& device = m_Context->GetDevice();
+    // for (auto&& image : m_Images) {
+    //     image.CleanupImageView();
+    //     image.CleanupImage();
+    // }
+}
+
+void VulkanSwapchain::CleanupSwapchain()
+{
+    CleanupImages();
     vkDestroySwapchainKHR(m_Context->GetDevice(), m_Swapchain, nullptr);
 }
 
@@ -205,7 +229,7 @@ bool VulkanSwapchain::ChooseSwapchainSurfaceFormat() {
     }
 
     for (auto&& format : surfaceFormats) {
-        if (format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+        if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
             format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             m_SurfaceFormat = format;
             return true;

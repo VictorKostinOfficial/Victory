@@ -18,15 +18,45 @@
 
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
-// #include <imconfig.h>
-// #include <imgui_tables.cpp>
-// #include <imgui_internal.h>
-// #include <imgui.cpp>
-// #include <imgui_draw.cpp>
-// #include <imgui_widgets.cpp>
-// #include <imgui_demo.cpp>
-// #include <backends/imgui_impl_glfw.cpp>
-// #include <backends/imgui_impl_vulkan.h>
+
+static VkDescriptorPool m_ImGuiPool{VK_NULL_HANDLE};
+static VkRenderPass m_ImGuiPass{VK_NULL_HANDLE};
+static VulkanFrameBuffer* m_ImGuiFrameBuffer{nullptr};
+static VkSampler m_ImGuiSampler{VK_NULL_HANDLE};
+static std::vector<VkDescriptorSet> m_Dest;
+
+void DestroyImgui(VkDevice device_, VkDescriptorPool pool_, VkRenderPass pass_) {
+    m_ImGuiFrameBuffer->CleanupCommandPool();
+    m_ImGuiFrameBuffer->CleanupFrameBuffers();
+    vkDestroyRenderPass(device_, pass_, nullptr);
+    vkDestroyDescriptorPool(device_, pool_, nullptr);
+}
+
+void createImGuiTextureSampler(VkDevice device_, VkSampler &sampler_)
+{
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.anisotropyEnable = VK_FALSE;
+	samplerInfo.maxAnisotropy = 1.0f;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	if (vkCreateSampler(device_, &samplerInfo, nullptr, &sampler_) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create texture sampler!");
+	}
+}
 
 #define CHK_RESULT(RESULT, MESSAGE) \
     if (RESULT == false) { \
@@ -112,7 +142,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(),
         "Color resources were not created");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass()),
         "Frame buffers were not created!");
 
     // CHK_RESULT(m_VulkanBuffer->LoadModel(),
@@ -140,7 +170,8 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 
     m_Images.push_back(VulkanImage(m_VulkanContext, m_VulkanFrameBuffer));
     CreateImageSettings settings{};
-    settings.Format = VK_FORMAT_R8G8B8A8_SRGB;
+    // settings.Format = VK_FORMAT_R8G8B8A8_SRGB;
+    settings.Format = VK_FORMAT_R8G8B8A8_UNORM;
     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
     settings.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -194,6 +225,7 @@ void VulkanRenderer::PollEvents() {
 }
 
 bool VulkanRenderer::Resize() {
+
     VkDevice device = m_VulkanContext->GetDevice();
     CHK_RESULT((vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX) == VK_SUCCESS),
         "Wait for fences = false!");
@@ -216,79 +248,119 @@ bool VulkanRenderer::Resize() {
 }
 
 void VulkanRenderer::BeginFrame() {
-    // printf("\n-------------- BEGIN FRAME -------------");
+    printf("\n-------------- BEGIN FRAME -------------");
     for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
         m_Buffers[i].UpdateUniformBuffer(m_CurrentFrame);
     }
 }
 
 void VulkanRenderer::RecordCommandBuffer() {
-    VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
-
-    VkCommandBufferBeginInfo commandBufferBI{};
-    commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    commandBufferBI.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &commandBufferBI);
-
-    VkRect2D rect{};
-    rect.offset = {0, 0};
-    rect.extent = m_VulkanSwapchain->GetExtent();
-
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{6.f / 255.f, 1.25f / 255.f, 4.5f / 255.f, 1.f}};
-    clearValues[1].depthStencil = {1.f, 0};
-
-    VkRenderPassBeginInfo renderPassBI{};
-    renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBI.renderPass = m_VulkanPipeline->GetRenderPass();
-    renderPassBI.framebuffer = m_VulkanFrameBuffer->GetFrameBuffer(m_ImageIndex);
-    renderPassBI.renderArea = rect;
-    renderPassBI.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassBI.pClearValues = clearValues.data();
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
     {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipeline());
-
-        VkViewport viewport{};
-        viewport.x = 0.f;
-        viewport.y = 0.f;
-        viewport.width = static_cast<float>(rect.extent.width);
-        viewport.height = static_cast<float>(rect.extent.height);
-        viewport.minDepth = 0.f;
-        viewport.maxDepth = 1.f;
-
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(commandBuffer, 0, 1, &rect);
-
-        for (size_t i{0}, n = m_Models.size(); i < n; ++i) {
-            std::vector<VkBuffer> vertexBuffers{m_Models[i].GetVertexBuffer()};
-            VkBuffer indexBuffer{m_Models[i].GetIndexBuffer()};
-            std::vector<VkDeviceSize> offsets{0};
-
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
-            vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipelineLayout(), 
-                0, 1, &m_Buffers[i].GetDescriptorSet(m_CurrentFrame), 0, nullptr);
-
-            vkCmdDrawIndexed(commandBuffer, m_Models[i].GetIndexCount(), 1, 0, 0, 0);
-
-            ImGui_ImplVulkan_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        {
             ImGui::ShowDemoWindow();
-
-            ImGui::Render();
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer, nullptr);
-            // ImGui::UpdatePlatformWindows();
+        
+            // ImGui::Begin("Viewport");
+		    // ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+            // ImGui::Image(m_Dest[m_CurrentFrame], ImVec2{viewportPanelSize.x,viewportPanelSize.y});
+            // ImGui::Button("test");
+		    // ImGui::End();
+        }
+        ImGuiIO &io = ImGui::GetIO();
+        ImGui::Render();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
         }
     }
-    vkCmdEndRenderPass(commandBuffer);
-    vkEndCommandBuffer(commandBuffer);
+
+    {
+        VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
+
+        VkCommandBufferBeginInfo commandBufferBI{};
+        commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        commandBufferBI.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &commandBufferBI);
+
+        VkRect2D rect{};
+        rect.offset = {0, 0};
+        rect.extent = m_VulkanSwapchain->GetExtent();
+
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = {{48.f / 255.f, 10.f / 255.f, 36.f / 255.f, 1.f}};
+        clearValues[1].depthStencil = {1.f, 0};
+
+        VkRenderPassBeginInfo renderPassBI{};
+        renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBI.renderPass = m_VulkanPipeline->GetRenderPass();
+        renderPassBI.framebuffer = m_VulkanFrameBuffer->GetFrameBuffer(m_ImageIndex);
+        renderPassBI.renderArea = rect;
+        renderPassBI.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        renderPassBI.pClearValues = clearValues.data();
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+        {
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipeline());
+
+            VkViewport viewport{};
+            viewport.x = 0.f;
+            viewport.y = 0.f;
+            viewport.width = static_cast<float>(rect.extent.width);
+            viewport.height = static_cast<float>(rect.extent.height);
+            viewport.minDepth = 0.f;
+            viewport.maxDepth = 1.f;
+
+            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer, 0, 1, &rect);
+
+            for (size_t i{0}, n = m_Models.size(); i < n; ++i) {
+                std::vector<VkBuffer> vertexBuffers{m_Models[i].GetVertexBuffer()};
+                VkBuffer indexBuffer{m_Models[i].GetIndexBuffer()};
+                std::vector<VkDeviceSize> offsets{0};
+
+                vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
+                vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->GetPipelineLayout(), 
+                    0, 1, &m_Buffers[i].GetDescriptorSet(m_CurrentFrame), 0, nullptr);
+
+                vkCmdDrawIndexed(commandBuffer, m_Models[i].GetIndexCount(), 1, 0, 0, 0);
+
+            }
+        }
+        vkCmdEndRenderPass(commandBuffer);
+        vkEndCommandBuffer(commandBuffer);
+    }
+
+    {
+        VkCommandBuffer ImGuiCommandBuffer = m_ImGuiFrameBuffer->GetCommandBuffer(m_CurrentFrame);
+        VkCommandBufferBeginInfo commandBufferBI{};
+        commandBufferBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        commandBufferBI.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(ImGuiCommandBuffer, &commandBufferBI);
+
+        VkClearValue clearColor = {0.f, 0.f, 0.f, 0.f};
+
+        VkRenderPassBeginInfo renderPassBI{};
+        renderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBI.renderPass = m_ImGuiPass;
+        renderPassBI.framebuffer = m_ImGuiFrameBuffer->GetFrameBuffer(m_ImageIndex);
+        renderPassBI.renderArea.offset = {0, 0};
+        renderPassBI.renderArea.extent = m_VulkanSwapchain->GetExtent();
+        renderPassBI.clearValueCount = 1;
+        renderPassBI.pClearValues = &clearColor;
+
+        vkCmdBeginRenderPass(ImGuiCommandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+        {
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ImGuiCommandBuffer);
+        }
+        vkCmdEndRenderPass(ImGuiCommandBuffer);
+        vkEndCommandBuffer(ImGuiCommandBuffer);
+    }
 }
 
 void VulkanRenderer::EndFrame() {
@@ -298,15 +370,18 @@ void VulkanRenderer::EndFrame() {
     const std::vector<VkSemaphore> signalSemaphores{m_FinishedSemaphores[m_CurrentFrame]};
     const std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-    VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
+    std::array<VkCommandBuffer, 2> submitCommandBuffers = {
+        m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame),
+        m_ImGuiFrameBuffer->GetCommandBuffer(m_CurrentFrame)};
+
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pWaitDstStageMask = waitStages.data();
+    submitInfo.commandBufferCount = static_cast<uint32_t>(submitCommandBuffers.size());
+    submitInfo.pCommandBuffers = submitCommandBuffers.data();
     submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
     submitInfo.pWaitSemaphores = waitSemaphores.data();
-    submitInfo.pWaitDstStageMask = waitStages.data();
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
     submitInfo.pSignalSemaphores = signalSemaphores.data();
 
     VkQueue graphicsQueue = m_VulkanContext->GetQueue(QueueIndex::eGraphics);
@@ -318,11 +393,11 @@ void VulkanRenderer::EndFrame() {
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(signalOld.size());
-    presentInfo.pWaitSemaphores = signalOld.data();
     presentInfo.swapchainCount = static_cast<uint32_t>(swapOld.size());
     presentInfo.pSwapchains = swapOld.data();
     presentInfo.pImageIndices = &m_ImageIndex;
+    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(signalOld.size());
+    presentInfo.pWaitSemaphores = signalOld.data();
 
     VkQueue presentQueue = m_VulkanContext->GetQueue(QueueIndex::ePresent);
 
@@ -341,9 +416,12 @@ void VulkanRenderer::Destroy() {
 
     vkDeviceWaitIdle(device);
 
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    DestroyImgui(m_VulkanContext->GetDevice(), m_ImGuiPool, m_ImGuiPass);
 
     for (auto&& image : m_Images) {
         image.CleanupAll();
@@ -396,9 +474,11 @@ void VulkanRenderer::RecreateSwapchain() {
 
     m_VulkanSwapchain->CleanupSwapchain();
     m_VulkanSwapchain->CleanupImageViews();
+    // m_VulkanSwapchain->CleanupImages();
     m_VulkanFrameBuffer->CleanupColorResources();
     m_VulkanFrameBuffer->CleanupDepthResources();
     m_VulkanFrameBuffer->CleanupFrameBuffers();
+    m_ImGuiFrameBuffer->CleanupFrameBuffers();
 
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
@@ -412,7 +492,10 @@ void VulkanRenderer::RecreateSwapchain() {
     CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(), 
         "Color Resources were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass()),
+        "Frame buffers were not created!");
+
+    CHK_RESULT(m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, true),
         "Frame buffers were not created!");
 }
 
@@ -425,12 +508,78 @@ void check_vk_result(VkResult err)
 		abort();
 }
 
+void CreateImguiDescriptorPool(const VkDevice device_, VkDescriptorPool& pool_) {
+    VkDescriptorPoolSize pool_sizes[] =
+	{
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+	pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+	pool_info.pPoolSizes = pool_sizes;
+	vkCreateDescriptorPool(device_, &pool_info, nullptr, &pool_);
+}
+
+void createImGuiRenderPass(const VkFormat format_, const VkFormat depth_, const VkDevice device_, VkRenderPass& pass_) {
+    std::array<VkAttachmentDescription, 1> attachmets({});
+    attachmets[0].format = VK_FORMAT_B8G8R8A8_UNORM;
+    attachmets[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachmets[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachmets[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachmets[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmets[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmets[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachmets[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentRef;
+
+	VkSubpassDependency dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkRenderPassCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	info.attachmentCount = static_cast<uint32_t>(attachmets.size());
+	info.pAttachments = attachmets.data();
+	info.subpassCount = 1;
+	info.pSubpasses = &subpass;
+	info.dependencyCount = 1;
+	info.pDependencies = &dependency;
+
+	if (vkCreateRenderPass(device_, &info, nullptr, &pass_) != VK_SUCCESS)
+		throw std::runtime_error("failed to create render pass!");
+}
+
 bool VulkanRenderer::InitImGui() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     ImGuiStyle& style = ImGui::GetStyle();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -447,16 +596,35 @@ bool VulkanRenderer::InitImGui() {
     info.QueueFamily = m_VulkanContext->GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
     info.Queue = m_VulkanContext->GetQueue(QueueIndex::eGraphics);
     info.PipelineCache = 0;
-    info.DescriptorPool = m_Buffers[0].GetDescriptorPool();
+    CreateImguiDescriptorPool(m_VulkanContext->GetDevice(), m_ImGuiPool);
+    info.DescriptorPool = m_ImGuiPool;
     info.Subpass = 0;
     info.MinImageCount = MAX_FRAMES_IN_FLIGHT;
     info.ImageCount = m_VulkanSwapchain->GetImageCount();
-    info.MSAASamples = m_VulkanContext->GetSampleCount();
+    info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     info.UseDynamicRendering = false;
     info.Allocator = 0;
     info.CheckVkResultFn = check_vk_result;
-    ImGui_ImplVulkan_Init(&info, m_VulkanPipeline->GetRenderPass());
+    createImGuiRenderPass(VK_FORMAT_B8G8R8A8_UNORM, m_VulkanPipeline->FindDepthFormat(), m_VulkanContext->GetDevice(), m_ImGuiPass);
+    ImGui_ImplVulkan_Init(&info, m_ImGuiPass);
+
+    m_ImGuiFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline);
+    m_ImGuiFrameBuffer->CreateCommandPool();
+    m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, true);
+    m_ImGuiFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT);
 
     ImGui_ImplVulkan_CreateFontsTexture();
+
+    // createImGuiTextureSampler(m_VulkanContext->GetDevice(), m_ImGuiSampler);
+    // auto&& images = m_VulkanSwapchain->GetImages();
+    // m_Dest.resize(images.size());
+    // for (size_t i{0}, n{m_Dest.size()}; i < n; ++i) {
+    //     m_Dest[i] = ImGui_ImplVulkan_AddTexture(m_ImGuiSampler, images[i].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // }
+
+    // TODO: Need create frame buffer for Imgui
+    // then in recordBuffer function create commandBuffer
+    // use this buffer for ImGui_ImpleVulkan_RenderDrawData()
+    // then submit both command buffer to queue
     return true;
 }

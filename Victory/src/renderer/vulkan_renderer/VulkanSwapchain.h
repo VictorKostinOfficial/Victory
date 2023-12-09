@@ -1,6 +1,8 @@
 #pragma once
 
 class VulkanContext;
+// class VulkanImage;
+
 struct GLFWwindow;
 
 class VulkanSwapchain {
@@ -15,6 +17,7 @@ public:
         VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
 
     void CleanupImageViews();
+    void CleanupImages();
     void CleanupSwapchain();
     void CleanupSurface();
     void CleanupAll();
@@ -23,9 +26,12 @@ public:
     VkSwapchainKHR GetSwapchain() const;
     VkSurfaceFormatKHR GetSurfaceFormat() const;
     VkExtent2D GetExtent() const;
+    // inline const std::vector<VulkanImage>& GetImages() const {
+    //     return m_Images;
+    // }
     const std::vector<VkImageView>& GetImageViews() const;
     inline const uint32_t GetImageCount() const {
-        return static_cast<uint32_t>(m_ImageViews.size());
+        return static_cast<uint32_t>(m_Images.size());
     }
 
 private:
@@ -46,6 +52,7 @@ private:
     VkPresentModeKHR m_PresentMode;
 
     // TODO: make list of VulkanImages
+    // std::vector<VulkanImage> m_Images;
     std::vector<VkImage> m_Images;
     std::vector<VkImageView> m_ImageViews;
     std::vector<VkFramebuffer> m_FrameBuffer;

@@ -12,7 +12,7 @@ public:
     VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
         VulkanPipeline* pipeline_);
 
-    bool CreateFrameBuffers();
+    bool CreateFrameBuffers(VkRenderPass pass_, bool isImGui_ = false);
     bool CreateCommandPool();
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
 

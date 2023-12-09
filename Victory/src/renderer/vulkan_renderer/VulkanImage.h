@@ -3,6 +3,7 @@
 class VulkanContext;
 class VulkanFrameBuffer;
 class VulkanSwapchain;
+#include <string>
 
 struct CreateImageSettings {
     uint32_t Width, Height;
