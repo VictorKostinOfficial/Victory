@@ -116,8 +116,16 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
+    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
+
+    CHK_RESULT(m_VulkanSwapchain->CreateImages(m_VulkanFrameBuffer),
+        "Surface images were not created!");
+
+    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
         "Image views were not created!");
+
+    // CHK_RESULT(m_VulkanSwapchain->CreateSamplers(), 
+    //     "Image views were not created!");
 
     m_VulkanPipeline = new VulkanPipeline(m_VulkanContext);
 
@@ -133,8 +141,6 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanPipeline->CreatePipeline(),
         "Pipeline was not created!");
 
-    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
-
     CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(m_VulkanPipeline->FindDepthFormat()
             , m_VulkanSwapchain->GetExtent()),
         "Depth resources were not created");
@@ -144,7 +150,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
         "Color resources were not created");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass()
-            , m_VulkanSwapchain->GetExtent(), m_VulkanSwapchain->GetImageViews()),
+            , m_VulkanSwapchain->GetExtent(), m_VulkanSwapchain->GetImages()),
         "Frame buffers were not created!");
 
     // CHK_RESULT(m_VulkanBuffer->LoadModel(),
@@ -258,27 +264,6 @@ void VulkanRenderer::BeginFrame() {
 
 void VulkanRenderer::RecordCommandBuffer() {
     {
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        {
-            ImGui::ShowDemoWindow();
-        
-            // ImGui::Begin("Viewport");
-		    // ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-            // ImGui::Image(m_Dest[m_CurrentFrame], ImVec2{viewportPanelSize.x,viewportPanelSize.y});
-            // ImGui::Button("test");
-		    // ImGui::End();
-        }
-        ImGuiIO &io = ImGui::GetIO();
-        ImGui::Render();
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
-    }
-
-    {
         VkCommandBuffer commandBuffer = m_VulkanFrameBuffer->GetCommandBuffer(m_CurrentFrame);
 
         VkCommandBufferBeginInfo commandBufferBI{};
@@ -336,6 +321,27 @@ void VulkanRenderer::RecordCommandBuffer() {
         vkCmdEndRenderPass(commandBuffer);
         vkEndCommandBuffer(commandBuffer);
     }
+
+    {
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        {
+            ImGui::ShowDemoWindow();
+        
+            // ImGui::Begin("Viewport");
+		    // ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+            // ImGui::Image(m_Dest[m_CurrentFrame], ImVec2{viewportPanelSize.x,viewportPanelSize.y});
+		    // ImGui::End();
+        }
+        ImGuiIO &io = ImGui::GetIO();
+        ImGui::Render();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+    }
+
 
     {
         VkCommandBuffer ImGuiCommandBuffer = m_ImGuiFrameBuffer->GetCommandBuffer(m_CurrentFrame);
@@ -476,9 +482,8 @@ void VulkanRenderer::RecreateSwapchain() {
     VkDevice device = m_VulkanContext->GetDevice();
     vkDeviceWaitIdle(device);
 
-    m_VulkanSwapchain->CleanupSwapchain();
     m_VulkanSwapchain->CleanupImageViews();
-    // m_VulkanSwapchain->CleanupImages();
+    m_VulkanSwapchain->CleanupSwapchain();
     m_VulkanFrameBuffer->CleanupColorResources();
     m_VulkanFrameBuffer->CleanupDepthResources();
     m_VulkanFrameBuffer->CleanupFrameBuffers();
@@ -487,7 +492,10 @@ void VulkanRenderer::RecreateSwapchain() {
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
+    CHK_RESULT(m_VulkanSwapchain->CreateImages(m_VulkanFrameBuffer),
+        "Swapchain was not created!");
+
+    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
         "Image views were not created!");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(m_VulkanPipeline->FindDepthFormat(), 
@@ -499,11 +507,11 @@ void VulkanRenderer::RecreateSwapchain() {
         "Color Resources were not created!");
 
     CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass(),
-            m_VulkanSwapchain->GetExtent(), m_VulkanSwapchain->GetImageViews()),
+            m_VulkanSwapchain->GetExtent(), m_VulkanSwapchain->GetImages()),
         "Frame buffers were not created!");
 
     CHK_RESULT(m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, m_VulkanSwapchain->GetExtent(), 
-            m_VulkanSwapchain->GetImageViews(), true),
+            m_VulkanSwapchain->GetImages(), true),
         "Frame buffers were not created!");
 }
 
@@ -550,6 +558,9 @@ void createImGuiRenderPass(const VkFormat format_, const VkFormat depth_, const 
     attachmets[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachmets[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachmets[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // attachmets[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // attachmets[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    // attachmets[0].finalLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
     attachmets[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentReference colorAttachmentRef{};
@@ -620,7 +631,7 @@ bool VulkanRenderer::InitImGui() {
     m_ImGuiFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
     // m_ImGuiFrameBuffer->CreateCommandPool();
     m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, m_VulkanSwapchain->GetExtent(), 
-            m_VulkanSwapchain->GetImageViews(), true);
+            m_VulkanSwapchain->GetImages(), true);
     m_ImGuiFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT);
 
     ImGui_ImplVulkan_CreateFontsTexture();

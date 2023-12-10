@@ -14,7 +14,7 @@ VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_)
 }
 
 bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_, 
-        const std::vector<VkImageView>& imageViews_, const bool isImGui_ /* = false */) {
+        const std::vector<VulkanImage>& images_, const bool isImGui_ /* = false */) {
     VkFramebufferCreateInfo frameBufferCI{};
     frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCI.renderPass = pass_;
@@ -23,19 +23,19 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D&
     frameBufferCI.layers = 1;
 
     auto&& device = m_Context->GetDevice();
-    m_FrameBuffers.resize(imageViews_.size());
+    m_FrameBuffers.resize(images_.size());
     // auto&& images = m_Swapchain->GetImages();
     // m_FrameBuffers.resize(images.size());
 
-    for(size_t i{0}, n = imageViews_.size(); i < n; ++i) {
+    for(size_t i{0}, n = images_.size(); i < n; ++i) {
 
         std::vector<VkImageView> attachments;
         if (isImGui_) {
-            attachments.emplace_back(imageViews_[i]);
+            attachments.emplace_back(images_[i].GetImageView());
         } else {
             attachments.emplace_back(m_ColorImage->GetImageView());
             attachments.emplace_back(m_DepthImage->GetImageView());
-            attachments.emplace_back(imageViews_[i]);
+            attachments.emplace_back(images_[i].GetImageView());
         }
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachments.size());
         frameBufferCI.pAttachments = attachments.data();

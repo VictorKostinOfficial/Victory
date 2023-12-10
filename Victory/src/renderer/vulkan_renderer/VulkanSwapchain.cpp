@@ -2,7 +2,8 @@
 #include <vector>
 
 #include "VulkanSwapchain.h"
-// #include "VulkanImage.h"
+#include "VulkanFrameBuffer.h"
+#include "VulkanImage.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -37,14 +38,14 @@ bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
         return false;
     }
 
-    uint32_t imageCount = capabilities.minImageCount + 1;
-    if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
-        imageCount = capabilities.maxImageCount;
+    m_ImageCount = capabilities.minImageCount + 1;
+    if (capabilities.maxImageCount > 0 && m_ImageCount > capabilities.maxImageCount) {
+        m_ImageCount = capabilities.maxImageCount;
     }
 
     VkSwapchainCreateInfoKHR swapchainCI{};
     swapchainCI.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    swapchainCI.minImageCount = imageCount;
+    swapchainCI.minImageCount = m_ImageCount;
     swapchainCI.surface = m_Surface;
     swapchainCI.imageFormat = m_SurfaceFormat.format;
     swapchainCI.imageColorSpace = m_SurfaceFormat.colorSpace;
@@ -79,79 +80,113 @@ bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
     if (vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &m_Swapchain) != VK_SUCCESS) {
         return false;
     }
+    return true;
+}
 
-    // m_Images.resize(imageCount, VulkanImage(m_Context, m_frameb));
+bool VulkanSwapchain::CreateImages(VulkanFrameBuffer* frameBuffer_) {
+
+    std::vector<VkImage> images(m_ImageCount);
+    images.resize(m_ImageCount);
+    if (vkGetSwapchainImagesKHR(m_Context->GetDevice(), m_Swapchain, &m_ImageCount, images.data()) != VK_SUCCESS) {
+        printf("\nSwapchain images were not geted!");
+        return false;
+    }
+
+    m_Images.clear();
+    for (auto&& image : images) {
+        m_Images.push_back(VulkanImage(m_Context, frameBuffer_, image));
+    }
+    return true;
+
     // for (auto&& image : m_Images) {
     //     CreateImageSettings settings{};
-    //     // settings.Format = VK_FORMAT_R8G8B8A8_SRGB;
-    //     settings.Format = VK_FORMAT_B8G8R8A8_UNORM;
+    //     settings.Width = m_Extent.width;
+    //     settings.Height = m_Extent.height;
+    //     settings.Format = m_SurfaceFormat.format;
     //     settings.Tiling = VK_IMAGE_TILING_LINEAR;
     //     settings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     //     settings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     //     settings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
     //     image.CreateImage(settings);
-    //     image.CreateImageView(VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
     // }
-
-    m_Images.resize(imageCount);
-    if (vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, m_Images.data()) != VK_SUCCESS) {
-        printf("\nSwapchain images were not geted!");
-        return false;
-    }
-
-    return true;
 }
 
-bool VulkanSwapchain::CreateImageViews() {
-    m_ImageViews.resize(m_Images.size());
-    for (size_t i{0}, n = m_Images.size(); i < n ; ++i) {
-        if (!CreateImageView(m_Images[i], m_SurfaceFormat.format, 
-            VK_IMAGE_ASPECT_COLOR_BIT, m_ImageViews[i])) {
-            return false;
-        }
+bool VulkanSwapchain::CreateImageViews(const VkImageAspectFlags aspectFlags_) {
+    for (auto&& image : m_Images) {
+        image.CreateImageView(m_SurfaceFormat.format, aspectFlags_);
     }
     return true;
 }
 
-bool VulkanSwapchain::CreateImageView(VkImage imgage_, VkFormat format_, 
-    VkImageAspectFlags aspectFlags_, VkImageView& imageView_) {
-    VkImageViewCreateInfo imageViewCI{};
-    imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    imageViewCI.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewCI.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewCI.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewCI.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewCI.subresourceRange.baseArrayLayer = 0;
-    imageViewCI.subresourceRange.levelCount = 1;
-    imageViewCI.subresourceRange.baseArrayLayer = 0;
-    imageViewCI.subresourceRange.layerCount = 1;
-
-    imageViewCI.image = imgage_;
-    imageViewCI.format = format_;
-    imageViewCI.subresourceRange.aspectMask = aspectFlags_;
-
-    return (vkCreateImageView(m_Context->GetDevice(), &imageViewCI, nullptr, &imageView_) == VK_SUCCESS);
+bool VulkanSwapchain::CreateSamplers() {
+    for (auto&& image : m_Images) {
+        image.CreateSampler();
+    }
+    return true;
 }
 
-void VulkanSwapchain::CleanupImageViews() {
+// bool VulkanSwapchain::CreateImageViews() {
+//     m_ImageViews.resize(m_Images.size());
+//     for (size_t i{0}, n = m_Images.size(); i < n ; ++i) {
+//         if (!CreateImageView(m_Images[i], m_SurfaceFormat.format, 
+//             VK_IMAGE_ASPECT_COLOR_BIT, m_ImageViews[i])) {
+//             return false;
+//         }
+//     }
+//     return true;
+// }
+
+// bool VulkanSwapchain::CreateImageView(VkImage imgage_, VkFormat format_, 
+//     VkImageAspectFlags aspectFlags_, VkImageView& imageView_) {
+//     VkImageViewCreateInfo imageViewCI{};
+//     imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+//     imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+//     imageViewCI.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+//     imageViewCI.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+//     imageViewCI.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+//     imageViewCI.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+//     imageViewCI.subresourceRange.baseArrayLayer = 0;
+//     imageViewCI.subresourceRange.levelCount = 1;
+//     imageViewCI.subresourceRange.baseArrayLayer = 0;
+//     imageViewCI.subresourceRange.layerCount = 1;
+
+//     imageViewCI.image = imgage_;
+//     imageViewCI.format = format_;
+//     imageViewCI.subresourceRange.aspectMask = aspectFlags_;
+
+//     return (vkCreateImageView(m_Context->GetDevice(), &imageViewCI, nullptr, &imageView_) == VK_SUCCESS);
+// }
+
+// void VulkanSwapchain::CleanupImageViews() {
+//     auto&& device = m_Context->GetDevice();
+//     for (auto&& imageView : m_ImageViews) {
+//         vkDestroyImageView(device, imageView, nullptr);
+//     }
+// }
+
+void VulkanSwapchain::CleanupSamplers() {
     auto&& device = m_Context->GetDevice();
-    for (auto&& imageView : m_ImageViews) {
-        vkDestroyImageView(device, imageView, nullptr);
+    for (auto&& image : m_Images) {
+        image.CleanupSampler();
+    }
+}
+
+void VulkanSwapchain::CleanupImageViews()
+{
+    auto&& device = m_Context->GetDevice();
+    for (auto&& image : m_Images) {
+        image.CleanupImageView();
     }
 }
 
 void VulkanSwapchain::CleanupImages() {
     auto&& device = m_Context->GetDevice();
-    // for (auto&& image : m_Images) {
-    //     image.CleanupImageView();
-    //     image.CleanupImage();
-    // }
+    for (auto&& image : m_Images) {
+        image.CleanupImage();
+    }
 }
 
-void VulkanSwapchain::CleanupSwapchain()
-{
-    CleanupImages();
+void VulkanSwapchain::CleanupSwapchain() {
     vkDestroySwapchainKHR(m_Context->GetDevice(), m_Swapchain, nullptr);
 }
 
@@ -160,6 +195,7 @@ void VulkanSwapchain::CleanupSurface() {
 }
 
 void VulkanSwapchain::CleanupAll() {
+    CleanupSamplers();
     CleanupImageViews();
     CleanupSwapchain();
     CleanupSurface();
@@ -181,9 +217,9 @@ VkExtent2D VulkanSwapchain::GetExtent() const {
     return m_Extent;
 }
 
-const std::vector<VkImageView>& VulkanSwapchain::GetImageViews() const{
-    return m_ImageViews;
-}
+// const std::vector<VkImageView>& VulkanSwapchain::GetImageViews() const{
+//     return m_ImageViews;
+// }
 
 //----------------------------------------------------------------------
 //--------------------------------PRIVATE-------------------------------

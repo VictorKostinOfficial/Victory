@@ -1,7 +1,8 @@
 #pragma once
 
 class VulkanContext;
-// class VulkanImage;
+class VulkanFrameBuffer;
+class VulkanImage;
 
 struct GLFWwindow;
 
@@ -12,10 +13,15 @@ public:
 
     bool CreateSurface(GLFWwindow* window_);
     bool CreateSwapchain(GLFWwindow* window_);
-    bool CreateImageViews();
-    bool CreateImageView(VkImage imgage_, VkFormat format_, 
-        VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
+    bool CreateImages(VulkanFrameBuffer* frameBuffer_);
+    bool CreateImageViews(const VkImageAspectFlags aspectFlags_);
+    bool CreateSamplers();
+    // bool CreateImageViews();
+    // bool CreateImageView(VkImage imgage_, VkFormat format_, 
+    //     VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
 
+    // void CleanupImageViews();
+    void CleanupSamplers();
     void CleanupImageViews();
     void CleanupImages();
     void CleanupSwapchain();
@@ -26,12 +32,14 @@ public:
     VkSwapchainKHR GetSwapchain() const;
     VkSurfaceFormatKHR GetSurfaceFormat() const;
     VkExtent2D GetExtent() const;
-    // inline const std::vector<VulkanImage>& GetImages() const {
-    //     return m_Images;
-    // }
-    const std::vector<VkImageView>& GetImageViews() const;
+    // const std::vector<VkImageView>& GetImageViews() const;
+
+    inline const std::vector<VulkanImage>& GetImages() const {
+        return m_Images;
+    }
+
     inline const uint32_t GetImageCount() const {
-        return static_cast<uint32_t>(m_Images.size());
+        return m_ImageCount;
     }
 
 private:
@@ -43,6 +51,7 @@ private:
 private:
 
     VulkanContext* m_Context;
+    VulkanFrameBuffer* m_FrameBuffer;
 
     VkSurfaceKHR m_Surface{VK_NULL_HANDLE};
     VkSwapchainKHR m_Swapchain{VK_NULL_HANDLE};
@@ -52,7 +61,8 @@ private:
     VkPresentModeKHR m_PresentMode;
 
     // TODO: make list of VulkanImages
-    // std::vector<VulkanImage> m_Images;
-    std::vector<VkImage> m_Images;
-    std::vector<VkImageView> m_ImageViews;
+    uint32_t m_ImageCount;
+    std::vector<VulkanImage> m_Images;
+    // std::vector<VkImage> m_Images;
+    // std::vector<VkImageView> m_ImageViews;
 };

@@ -1,9 +1,6 @@
 #pragma once
 
 class VulkanContext;
-class VulkanSwapchain;
-class VulkanPipeline;
-class VulkanBuffer;
 class VulkanImage;
 
 class VulkanFrameBuffer {
@@ -12,7 +9,7 @@ public:
     VulkanFrameBuffer(VulkanContext* context_);
 
     bool CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_,
-            const std::vector<VkImageView>& imageViews_, const bool isImGui_ = false);
+            const std::vector<VulkanImage>& images_, const bool isImGui_ = false);
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
 
     bool CreateDepthResources(const VkFormat depthFormat_, const VkExtent2D& extent_);

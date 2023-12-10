@@ -20,6 +20,10 @@ public:
     VulkanImage(VulkanContext* context_, 
         VulkanFrameBuffer* frameBuffer_);
 
+    VulkanImage(VulkanContext* context_, 
+        VulkanFrameBuffer* frameBuffer_, 
+        VkImage image_);
+
     // Give buffer settings?
     bool LoadTexture(std::string&& path_, CreateImageSettings& settings_);
     bool CreateImage(const CreateImageSettings& settings_);
@@ -37,7 +41,7 @@ public:
         return m_Image;
     }
 
-    inline const VkImageView& GetImageView() const {
+    inline VkImageView GetImageView() const {
         return m_ImageView;
     }
 
@@ -45,7 +49,7 @@ public:
         return m_ImageMemory;
     }
 
-    inline const VkSampler& GetSampler() const {
+    inline VkSampler GetSampler() const {
         return m_Sampler;
     }
 
