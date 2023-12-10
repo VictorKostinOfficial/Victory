@@ -9,15 +9,14 @@ class VulkanImage;
 class VulkanFrameBuffer {
 public:
 
-    VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
-        VulkanPipeline* pipeline_);
+    VulkanFrameBuffer(VulkanContext* context_);
 
-    bool CreateFrameBuffers(VkRenderPass pass_, bool isImGui_ = false);
-    bool CreateCommandPool();
+    bool CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_,
+            const std::vector<VkImageView>& imageViews_, const bool isImGui_ = false);
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
 
-    bool CreateDepthResources();
-    bool CreateColorResources();
+    bool CreateDepthResources(const VkFormat depthFormat_, const VkExtent2D& extent_);
+    bool CreateColorResources(const VkFormat colorFormat_, const VkExtent2D& extent_);
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
@@ -25,16 +24,11 @@ public:
     void CleanupDepthResources();
     void CleanupColorResources();
 
-    void CleanupCommandPool();
     void CleanupFrameBuffers();
     void CleanupAll();
 
     inline VkCommandBuffer GetCommandBuffer(const uint32_t index) const {
         return m_CommandBuffers[index];
-    }
-
-    inline VkCommandPool GetCommandPool() const {
-        return m_CommandPool;
     }
 
     inline VkFramebuffer GetFrameBuffer(const uint32_t index) const {
@@ -44,12 +38,8 @@ public:
 private:
 
     VulkanContext* m_Context;
-    VulkanSwapchain* m_Swapchain;
-    VulkanPipeline* m_Pipeline;
-    VulkanBuffer* m_Buffer;
 
     std::vector<VkFramebuffer> m_FrameBuffers;
-    VkCommandPool m_CommandPool{VK_NULL_HANDLE};
     std::vector<VkCommandBuffer> m_CommandBuffers;
 
     VulkanImage* m_DepthImage;

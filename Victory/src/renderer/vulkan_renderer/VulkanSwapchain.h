@@ -55,5 +55,4 @@ private:
     // std::vector<VulkanImage> m_Images;
     std::vector<VkImage> m_Images;
     std::vector<VkImageView> m_ImageViews;
-    std::vector<VkFramebuffer> m_FrameBuffer;
 };

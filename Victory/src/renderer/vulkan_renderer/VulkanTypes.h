@@ -15,7 +15,7 @@ struct QueueIndexes {
     uint32_t m_ComputeQueueIndex{UINT32_MAX};
     uint32_t m_TransferQueueIndex{UINT32_MAX};
 
-    uint32_t GetQueueIndex(QueueIndex queueIndex_) {
+    const uint32_t GetQueueIndex(const QueueIndex queueIndex_) {
         switch (queueIndex_) {
         case QueueIndex::eGraphics:
             return m_GraphicsQueueIndex;

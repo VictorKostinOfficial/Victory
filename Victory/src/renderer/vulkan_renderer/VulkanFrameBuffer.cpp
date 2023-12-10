@@ -7,40 +7,35 @@
 #include <array>
 
 #include "VulkanContext.h"
-#include "VulkanSwapchain.h"
-#include "VulkanPipeline.h"
 #include "VulkanImage.h"
 
-VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_, VulkanSwapchain* swapchain_, 
-    VulkanPipeline* pipeline_) 
-    : m_Context{context_}
-    , m_Swapchain{swapchain_}
-    , m_Pipeline{pipeline_} {
+VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_)
+    : m_Context{context_} {
 }
 
-bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, bool isImGui_) {
+bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_, 
+        const std::vector<VkImageView>& imageViews_, const bool isImGui_ /* = false */) {
     VkFramebufferCreateInfo frameBufferCI{};
     frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCI.renderPass = pass_;
-    frameBufferCI.width = m_Swapchain->GetExtent().width;
-    frameBufferCI.height = m_Swapchain->GetExtent().height;
+    frameBufferCI.width = extent_.width;
+    frameBufferCI.height = extent_.height;
     frameBufferCI.layers = 1;
 
     auto&& device = m_Context->GetDevice();
-    auto&& imageViews = m_Swapchain->GetImageViews();
-    m_FrameBuffers.resize(imageViews.size());
+    m_FrameBuffers.resize(imageViews_.size());
     // auto&& images = m_Swapchain->GetImages();
     // m_FrameBuffers.resize(images.size());
 
-    for(size_t i{0}, n = imageViews.size(); i < n; ++i) {
+    for(size_t i{0}, n = imageViews_.size(); i < n; ++i) {
 
         std::vector<VkImageView> attachments;
         if (isImGui_) {
-            attachments.emplace_back(imageViews[i]);
+            attachments.emplace_back(imageViews_[i]);
         } else {
             attachments.emplace_back(m_ColorImage->GetImageView());
             attachments.emplace_back(m_DepthImage->GetImageView());
-            attachments.emplace_back(imageViews[i]);
+            attachments.emplace_back(imageViews_[i]);
         }
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachments.size());
         frameBufferCI.pAttachments = attachments.data();
@@ -54,19 +49,10 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, bool isImGui_) {
     return true;
 }
 
-bool VulkanFrameBuffer::CreateCommandPool() {
-    VkCommandPoolCreateInfo commandPoolCI{};
-    commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandPoolCI.queueFamilyIndex = m_Context->GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
-
-    return vkCreateCommandPool(m_Context->GetDevice(), &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
-}
-
 bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     VkCommandBufferAllocateInfo commandBufferAllocInfo{};
     commandBufferAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocInfo.commandPool = m_CommandPool;
+    commandBufferAllocInfo.commandPool = m_Context->GetCommandPool();
     commandBufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     commandBufferAllocInfo.commandBufferCount = commandBufferCount_;
 
@@ -74,12 +60,13 @@ bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     return vkAllocateCommandBuffers(m_Context->GetDevice(), &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
 
-bool VulkanFrameBuffer::CreateDepthResources() {
+// TODO: Create one fucntion for Resuouce creation
+bool VulkanFrameBuffer::CreateDepthResources(VkFormat depthFormat_, const VkExtent2D& extent_) {
     m_DepthImage = new VulkanImage(m_Context, this);
     CreateImageSettings settings{};
-    settings.Width = m_Swapchain->GetExtent().width;
-    settings.Height = m_Swapchain->GetExtent().height;
-    settings.Format = m_Pipeline->FindDepthFormat();
+    settings.Width = extent_.width;
+    settings.Height = extent_.height;
+    settings.Format = depthFormat_;
     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
     settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -91,12 +78,12 @@ bool VulkanFrameBuffer::CreateDepthResources() {
     return true;
 }
 
-bool VulkanFrameBuffer::CreateColorResources() {
+bool VulkanFrameBuffer::CreateColorResources(VkFormat colorFormat_, const VkExtent2D& extent_) {
     m_ColorImage = new VulkanImage(m_Context, this);
     CreateImageSettings settings{};
-    settings.Width = m_Swapchain->GetExtent().width;
-    settings.Height = m_Swapchain->GetExtent().height;
-    settings.Format = m_Swapchain->GetSurfaceFormat().format;
+    settings.Width = extent_.width;
+    settings.Height = extent_.height;
+    settings.Format = colorFormat_;
     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
     settings.Usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -112,7 +99,7 @@ VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = m_CommandPool;
+    allocInfo.commandPool = m_Context->GetCommandPool();
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -137,11 +124,12 @@ void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_) {
     // TODO: submit via transfer queue, need Transfer Command pool
     // https://vulkan-tutorial.com/Vertex_buffers/Staging_buffer
 
-    VkQueue queue = m_Context->GetQueue(QueueIndex::eGraphics);
+    VkQueue queue;
+    m_Context->GetQueue(queue, QueueIndex::eGraphics);
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(queue);
 
-    vkFreeCommandBuffers(m_Context->GetDevice(), m_CommandPool, 1, &commandBuffer_);
+    vkFreeCommandBuffers(m_Context->GetDevice(), m_Context->GetCommandPool(), 1, &commandBuffer_);
 }
 
 void VulkanFrameBuffer::CleanupFrameBuffers() {
@@ -158,15 +146,9 @@ void VulkanFrameBuffer::CleanupColorResources() {
     m_ColorImage->CleanupAll();
 }
 
-void VulkanFrameBuffer::CleanupCommandPool()
-{
-    vkDestroyCommandPool(m_Context->GetDevice(), m_CommandPool, nullptr);
-}
-
 void VulkanFrameBuffer::CleanupAll() {
     CleanupColorResources();
     CleanupDepthResources();
-    CleanupCommandPool();
     CleanupFrameBuffers();
 }
 

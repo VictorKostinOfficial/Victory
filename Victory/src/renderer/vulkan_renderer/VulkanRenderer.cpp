@@ -26,7 +26,6 @@ static VkSampler m_ImGuiSampler{VK_NULL_HANDLE};
 static std::vector<VkDescriptorSet> m_Dest;
 
 void DestroyImgui(VkDevice device_, VkDescriptorPool pool_, VkRenderPass pass_) {
-    m_ImGuiFrameBuffer->CleanupCommandPool();
     m_ImGuiFrameBuffer->CleanupFrameBuffers();
     vkDestroyRenderPass(device_, pass_, nullptr);
     vkDestroyDescriptorPool(device_, pool_, nullptr);
@@ -111,6 +110,9 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanContext->CreateLogicalDevice(), 
         "Logical Device was not created!");
 
+    CHK_RESULT(m_VulkanContext->CreateCommandPool(QueueIndex::eGraphics),
+        "Command pool was not created!");
+
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
@@ -131,18 +133,18 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanPipeline->CreatePipeline(),
         "Pipeline was not created!");
 
-    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline);
+    m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(),
-        "Command pool was not created!");
-
-    CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(m_VulkanPipeline->FindDepthFormat()
+            , m_VulkanSwapchain->GetExtent()),
         "Depth resources were not created");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(m_VulkanSwapchain->GetSurfaceFormat().format
+            , m_VulkanSwapchain->GetExtent()),
         "Color resources were not created");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass()),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass()
+            , m_VulkanSwapchain->GetExtent(), m_VulkanSwapchain->GetImageViews()),
         "Frame buffers were not created!");
 
     // CHK_RESULT(m_VulkanBuffer->LoadModel(),
@@ -384,7 +386,8 @@ void VulkanRenderer::EndFrame() {
     submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
     submitInfo.pSignalSemaphores = signalSemaphores.data();
 
-    VkQueue graphicsQueue = m_VulkanContext->GetQueue(QueueIndex::eGraphics);
+    VkQueue graphicsQueue;
+    m_VulkanContext->GetQueue(graphicsQueue, QueueIndex::eGraphics);
     CHK_RESULT((vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) == VK_SUCCESS),
         "Failed to submit draw command buffer!");
 
@@ -399,7 +402,8 @@ void VulkanRenderer::EndFrame() {
     presentInfo.waitSemaphoreCount = static_cast<uint32_t>(signalOld.size());
     presentInfo.pWaitSemaphores = signalOld.data();
 
-    VkQueue presentQueue = m_VulkanContext->GetQueue(QueueIndex::ePresent);
+    VkQueue presentQueue;
+    m_VulkanContext->GetQueue(presentQueue, QueueIndex::ePresent);
 
     VkResult presentResult = vkQueuePresentKHR(presentQueue, &presentInfo);
     if (presentResult ==  VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || m_IsResized) {
@@ -486,16 +490,20 @@ void VulkanRenderer::RecreateSwapchain() {
     CHK_RESULT(m_VulkanSwapchain->CreateImageViews(), 
         "Image views were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(), 
+    CHK_RESULT(m_VulkanFrameBuffer->CreateDepthResources(m_VulkanPipeline->FindDepthFormat(), 
+            m_VulkanSwapchain->GetExtent()), 
         "Depth Resources were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(), 
+    CHK_RESULT(m_VulkanFrameBuffer->CreateColorResources(m_VulkanSwapchain->GetSurfaceFormat().format,
+            m_VulkanSwapchain->GetExtent()), 
         "Color Resources were not created!");
 
-    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass()),
+    CHK_RESULT(m_VulkanFrameBuffer->CreateFrameBuffers(m_VulkanPipeline->GetRenderPass(),
+            m_VulkanSwapchain->GetExtent(), m_VulkanSwapchain->GetImageViews()),
         "Frame buffers were not created!");
 
-    CHK_RESULT(m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, true),
+    CHK_RESULT(m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, m_VulkanSwapchain->GetExtent(), 
+            m_VulkanSwapchain->GetImageViews(), true),
         "Frame buffers were not created!");
 }
 
@@ -594,7 +602,7 @@ bool VulkanRenderer::InitImGui() {
     info.PhysicalDevice = m_VulkanContext->GetPhysicalDevice();
     info.Device = m_VulkanContext->GetDevice();
     info.QueueFamily = m_VulkanContext->GetQueueIndexes().GetQueueIndex(QueueIndex::eGraphics);
-    info.Queue = m_VulkanContext->GetQueue(QueueIndex::eGraphics);
+    m_VulkanContext->GetQueue(info.Queue, QueueIndex::eGraphics);
     info.PipelineCache = 0;
     CreateImguiDescriptorPool(m_VulkanContext->GetDevice(), m_ImGuiPool);
     info.DescriptorPool = m_ImGuiPool;
@@ -605,12 +613,14 @@ bool VulkanRenderer::InitImGui() {
     info.UseDynamicRendering = false;
     info.Allocator = 0;
     info.CheckVkResultFn = check_vk_result;
-    createImGuiRenderPass(VK_FORMAT_B8G8R8A8_UNORM, m_VulkanPipeline->FindDepthFormat(), m_VulkanContext->GetDevice(), m_ImGuiPass);
+    createImGuiRenderPass(VK_FORMAT_B8G8R8A8_UNORM, m_VulkanPipeline->FindDepthFormat(), 
+            m_VulkanContext->GetDevice(), m_ImGuiPass);
     ImGui_ImplVulkan_Init(&info, m_ImGuiPass);
 
-    m_ImGuiFrameBuffer = new VulkanFrameBuffer(m_VulkanContext, m_VulkanSwapchain, m_VulkanPipeline);
-    m_ImGuiFrameBuffer->CreateCommandPool();
-    m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, true);
+    m_ImGuiFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
+    // m_ImGuiFrameBuffer->CreateCommandPool();
+    m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, m_VulkanSwapchain->GetExtent(), 
+            m_VulkanSwapchain->GetImageViews(), true);
     m_ImGuiFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT);
 
     ImGui_ImplVulkan_CreateFontsTexture();

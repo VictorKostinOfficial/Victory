@@ -9,6 +9,7 @@ public:
     bool CreateInstance(const char* applicationName_);
     bool PickPhysicalDevice(VkSurfaceKHR surface_);
     bool CreateLogicalDevice();
+    bool CreateCommandPool(QueueIndex index_);
 
 #ifndef NDEBUG
     bool RegisterDebugUtilsMessenger();
@@ -17,6 +18,7 @@ public:
 
     uint32_t FindMemoryType(const uint32_t typeFilter_, const VkMemoryPropertyFlags flags_) const;
 
+    void CleanupCommandPool();
     void CleanupLogicalDevice();
     void CleanupInstance();
     void CleanupAll();
@@ -33,9 +35,13 @@ public:
         return m_PhysicalDevice;
     }
 
-    VkQueue GetQueue(QueueIndex queue_);
+    void GetQueue(VkQueue& queue_, QueueIndex queueIndex_);
 
-    inline QueueIndexes& GetQueueIndexes() {
+    inline VkCommandPool GetCommandPool() const {
+        return m_CommandPool;
+    }
+
+    inline QueueIndexes& GetQueueIndexes(){
         return m_QueueIndexes;
     }
 
@@ -61,6 +67,7 @@ private:
     VkInstance m_Instance{VK_NULL_HANDLE};
     VkPhysicalDevice m_PhysicalDevice{VK_NULL_HANDLE};
     VkDevice m_Device{VK_NULL_HANDLE};
+    VkCommandPool m_CommandPool{VK_NULL_HANDLE};
 
     QueueIndexes m_QueueIndexes;
     VkSampleCountFlagBits m_MSAASamples = VK_SAMPLE_COUNT_1_BIT;
