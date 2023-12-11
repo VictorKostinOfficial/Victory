@@ -125,45 +125,6 @@ bool VulkanSwapchain::CreateSamplers() {
     return true;
 }
 
-// bool VulkanSwapchain::CreateImageViews() {
-//     m_ImageViews.resize(m_Images.size());
-//     for (size_t i{0}, n = m_Images.size(); i < n ; ++i) {
-//         if (!CreateImageView(m_Images[i], m_SurfaceFormat.format, 
-//             VK_IMAGE_ASPECT_COLOR_BIT, m_ImageViews[i])) {
-//             return false;
-//         }
-//     }
-//     return true;
-// }
-
-// bool VulkanSwapchain::CreateImageView(VkImage imgage_, VkFormat format_, 
-//     VkImageAspectFlags aspectFlags_, VkImageView& imageView_) {
-//     VkImageViewCreateInfo imageViewCI{};
-//     imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-//     imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
-//     imageViewCI.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-//     imageViewCI.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-//     imageViewCI.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-//     imageViewCI.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-//     imageViewCI.subresourceRange.baseArrayLayer = 0;
-//     imageViewCI.subresourceRange.levelCount = 1;
-//     imageViewCI.subresourceRange.baseArrayLayer = 0;
-//     imageViewCI.subresourceRange.layerCount = 1;
-
-//     imageViewCI.image = imgage_;
-//     imageViewCI.format = format_;
-//     imageViewCI.subresourceRange.aspectMask = aspectFlags_;
-
-//     return (vkCreateImageView(m_Context->GetDevice(), &imageViewCI, nullptr, &imageView_) == VK_SUCCESS);
-// }
-
-// void VulkanSwapchain::CleanupImageViews() {
-//     auto&& device = m_Context->GetDevice();
-//     for (auto&& imageView : m_ImageViews) {
-//         vkDestroyImageView(device, imageView, nullptr);
-//     }
-// }
-
 void VulkanSwapchain::CleanupSamplers() {
     auto&& device = m_Context->GetDevice();
     for (auto&& image : m_Images) {

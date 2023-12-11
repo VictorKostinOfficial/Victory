@@ -103,15 +103,6 @@ bool VulkanContext::CreateLogicalDevice() {
     return vkCreateDevice(m_PhysicalDevice, &deviceCI, nullptr, &m_Device) == VK_SUCCESS;
 }
 
-bool VulkanContext::CreateCommandPool(QueueIndex index_) {
-    VkCommandPoolCreateInfo commandPoolCI{};
-    commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandPoolCI.queueFamilyIndex = GetQueueIndexes().GetQueueIndex(index_);
-
-    return vkCreateCommandPool(m_Device, &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
-}
-
 #ifndef NDEBUG
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugReportCallback( 
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -174,10 +165,6 @@ void VulkanContext::GetQueue(VkQueue& queue_, QueueIndex queueIndex_) {
     vkGetDeviceQueue(m_Device, index, 0, &queue_);
 }
 
-void VulkanContext::CleanupCommandPool() {
-    vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
-}
-
 void VulkanContext::CleanupLogicalDevice() {
     vkDestroyDevice(m_Device, nullptr);
 }
@@ -190,7 +177,6 @@ void VulkanContext::CleanupAll() {
 #ifndef NDEBUG
     CleanupDebugUtilsMessenger();
 #endif
-    CleanupCommandPool();
     CleanupLogicalDevice();
     CleanupInstance();
 }

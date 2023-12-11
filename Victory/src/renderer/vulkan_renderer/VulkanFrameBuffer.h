@@ -2,11 +2,13 @@
 
 class VulkanContext;
 class VulkanImage;
+enum class QueueIndex;
 
 class VulkanFrameBuffer {
 public:
 
     VulkanFrameBuffer(VulkanContext* context_);
+    bool CreateCommandPool(QueueIndex index_);
 
     bool CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_,
             const std::vector<VulkanImage>& images_, const bool isImGui_ = false);
@@ -22,7 +24,8 @@ public:
     void CleanupColorResources();
 
     void CleanupFrameBuffers();
-    void CleanupAll();
+    void CleanupCommandPool();
+    void CleanupAll(bool bClearResources = false);
 
     inline VkCommandBuffer GetCommandBuffer(const uint32_t index) const {
         return m_CommandBuffers[index];
@@ -35,6 +38,7 @@ public:
 private:
 
     VulkanContext* m_Context;
+    VkCommandPool m_CommandPool{VK_NULL_HANDLE};
 
     std::vector<VkFramebuffer> m_FrameBuffers;
     std::vector<VkCommandBuffer> m_CommandBuffers;

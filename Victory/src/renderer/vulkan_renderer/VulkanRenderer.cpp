@@ -26,7 +26,7 @@ static VkSampler m_ImGuiSampler{VK_NULL_HANDLE};
 static std::vector<VkDescriptorSet> m_Dest;
 
 void DestroyImgui(VkDevice device_, VkDescriptorPool pool_, VkRenderPass pass_) {
-    m_ImGuiFrameBuffer->CleanupFrameBuffers();
+    m_ImGuiFrameBuffer->CleanupAll();
     vkDestroyRenderPass(device_, pass_, nullptr);
     vkDestroyDescriptorPool(device_, pool_, nullptr);
 }
@@ -110,13 +110,13 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanContext->CreateLogicalDevice(), 
         "Logical Device was not created!");
 
-    CHK_RESULT(m_VulkanContext->CreateCommandPool(QueueIndex::eGraphics),
-        "Command pool was not created!");
-
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
     m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
+
+    CHK_RESULT(m_VulkanFrameBuffer->CreateCommandPool(QueueIndex::eGraphics),
+        "Command pool was not created!");
 
     CHK_RESULT(m_VulkanSwapchain->CreateImages(m_VulkanFrameBuffer),
         "Surface images were not created!");
@@ -451,7 +451,7 @@ void VulkanRenderer::Destroy() {
         vkDestroyFence(device, m_InFlightFences[i], nullptr);
     }
 
-    m_VulkanFrameBuffer->CleanupAll();
+    m_VulkanFrameBuffer->CleanupAll(true);
     m_VulkanPipeline->CleanupAll();
     m_VulkanSwapchain->CleanupAll();
     m_VulkanContext->CleanupAll();
@@ -459,6 +459,7 @@ void VulkanRenderer::Destroy() {
     glfwDestroyWindow(m_Window);
     glfwTerminate();
 
+    delete m_ImGuiFrameBuffer;
     delete m_VulkanFrameBuffer;
     delete m_VulkanPipeline;
     delete m_VulkanSwapchain;
@@ -629,7 +630,7 @@ bool VulkanRenderer::InitImGui() {
     ImGui_ImplVulkan_Init(&info, m_ImGuiPass);
 
     m_ImGuiFrameBuffer = new VulkanFrameBuffer(m_VulkanContext);
-    // m_ImGuiFrameBuffer->CreateCommandPool();
+    m_ImGuiFrameBuffer->CreateCommandPool(QueueIndex::eGraphics);
     m_ImGuiFrameBuffer->CreateFrameBuffers(m_ImGuiPass, m_VulkanSwapchain->GetExtent(), 
             m_VulkanSwapchain->GetImages(), true);
     m_ImGuiFrameBuffer->CreateCommandBuffer(MAX_FRAMES_IN_FLIGHT);

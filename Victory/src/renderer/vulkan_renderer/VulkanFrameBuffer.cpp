@@ -13,6 +13,15 @@ VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_)
     : m_Context{context_} {
 }
 
+bool VulkanFrameBuffer::CreateCommandPool(QueueIndex index_) {
+    VkCommandPoolCreateInfo commandPoolCI{};
+    commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolCI.queueFamilyIndex = m_Context->GetQueueIndexes().GetQueueIndex(index_);
+
+    return vkCreateCommandPool(m_Context->GetDevice(), &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
+}
+
 bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_, 
         const std::vector<VulkanImage>& images_, const bool isImGui_ /* = false */) {
     VkFramebufferCreateInfo frameBufferCI{};
@@ -52,7 +61,7 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D&
 bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     VkCommandBufferAllocateInfo commandBufferAllocInfo{};
     commandBufferAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocInfo.commandPool = m_Context->GetCommandPool();
+    commandBufferAllocInfo.commandPool = m_CommandPool;
     commandBufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     commandBufferAllocInfo.commandBufferCount = commandBufferCount_;
 
@@ -99,7 +108,7 @@ VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = m_Context->GetCommandPool();
+    allocInfo.commandPool = m_CommandPool;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -129,7 +138,7 @@ void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_) {
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(queue);
 
-    vkFreeCommandBuffers(m_Context->GetDevice(), m_Context->GetCommandPool(), 1, &commandBuffer_);
+    vkFreeCommandBuffers(m_Context->GetDevice(), m_CommandPool, 1, &commandBuffer_);
 }
 
 void VulkanFrameBuffer::CleanupFrameBuffers() {
@@ -146,10 +155,17 @@ void VulkanFrameBuffer::CleanupColorResources() {
     m_ColorImage->CleanupAll();
 }
 
-void VulkanFrameBuffer::CleanupAll() {
-    CleanupColorResources();
-    CleanupDepthResources();
+void VulkanFrameBuffer::CleanupCommandPool() {
+    vkDestroyCommandPool(m_Context->GetDevice(), m_CommandPool, nullptr);
+}
+
+void VulkanFrameBuffer::CleanupAll(bool bCleanupResources /* = false*/) {
+    if (bCleanupResources) {
+        CleanupColorResources();
+        CleanupDepthResources();
+    }
     CleanupFrameBuffers();
+    CleanupCommandPool();
 }
 
 //----------------------------------------------------------------------
