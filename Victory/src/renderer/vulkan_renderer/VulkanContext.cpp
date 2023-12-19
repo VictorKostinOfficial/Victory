@@ -187,6 +187,7 @@ void VulkanContext::CleanupAll() {
 void VulkanContext::CollectLayers(std::vector<const char*> &layers_) {
 #ifndef NDEBUG
     layers_.emplace_back("VK_LAYER_KHRONOS_validation");
+    layers_.emplace_back("VK_LAYER_LUNARG_monitor");
 #endif // NDEBUG
 }
 

@@ -35,9 +35,8 @@ struct UniformBufferObject {
     glm::mat4 proj;
 };
 
-VulkanBuffer::VulkanBuffer(VulkanContext *context_, VulkanPipeline* pipeline_, VulkanFrameBuffer *frameBuffer_, VulkanSwapchain* swapchain_) 
+VulkanBuffer::VulkanBuffer(VulkanContext *context_, VulkanFrameBuffer *frameBuffer_, VulkanSwapchain* swapchain_) 
     : m_Context{context_}
-    , m_Pipeline{pipeline_}
     , m_FrameBuffer{frameBuffer_}
     , m_Swapchain{swapchain_} {
 }
@@ -78,8 +77,8 @@ bool VulkanBuffer::CreateDescriptorPool(uint32_t maxFrames_) {
     return vkCreateDescriptorPool(m_Context->GetDevice(), &poolInfo, nullptr, &m_DescriptorPool) == VK_SUCCESS;
 }
 
-bool VulkanBuffer::CreateDescriptorSets(uint32_t maxFrames_, const VkSampler& sampler_, const VkImageView& imageView_) {
-    std::vector<VkDescriptorSetLayout> layouts(maxFrames_, m_Pipeline->GetDescriptorSetLayout());
+bool VulkanBuffer::CreateDescriptorSets(uint32_t maxFrames_, const VkSampler& sampler_, const VkImageView& imageView_, VkDescriptorSetLayout layout_) {
+    std::vector<VkDescriptorSetLayout> layouts(maxFrames_, layout_);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = m_DescriptorPool;

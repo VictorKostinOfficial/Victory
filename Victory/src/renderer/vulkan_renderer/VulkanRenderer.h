@@ -16,6 +16,7 @@ class VulkanFrameBuffer;
 class VulkanImage;
 class VulkanModel;
 class VulkanBuffer;
+class ImGuiPipeline;
 
 struct GLFWwindow;
 
@@ -52,8 +53,8 @@ private:
 
     VulkanContext* m_VulkanContext;
     VulkanSwapchain* m_VulkanSwapchain;
-    VulkanPipeline* m_VulkanPipeline;
-    VulkanFrameBuffer* m_VulkanFrameBuffer;
+    // VulkanPipeline* m_VulkanPipeline;
+    // VulkanFrameBuffer* m_VulkanFrameBuffer;
 
     uint32_t m_CurrentFrame{0};
     uint32_t m_ImageIndex{0};

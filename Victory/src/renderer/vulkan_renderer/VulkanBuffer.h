@@ -8,14 +8,13 @@ class VulkanPipeline;
 class VulkanBuffer
 {
 public:
-    VulkanBuffer(VulkanContext* context_, VulkanPipeline* pipeline_, 
-        VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
+    VulkanBuffer(VulkanContext* context_, VulkanFrameBuffer* frameBuffer_, VulkanSwapchain* swapchain_);
 
     // TODO: Create UnifomBuffer class?
     // TODO: Create Descriptor class? 
     bool CreateUniformBuffers(uint32_t maxFrames_);
     bool CreateDescriptorPool(uint32_t maxFrames_);
-    bool CreateDescriptorSets(uint32_t maxFrames_, const VkSampler& sampler_, const VkImageView& imageView_);
+    bool CreateDescriptorSets(uint32_t maxFrames_, const VkSampler& sampler_, const VkImageView& imageView_, VkDescriptorSetLayout layout_);
 
     void UpdateUniformBuffer(uint32_t imageIndex_);
 

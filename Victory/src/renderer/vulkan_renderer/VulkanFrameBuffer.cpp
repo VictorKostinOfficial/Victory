@@ -39,13 +39,14 @@ bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D&
     for(size_t i{0}, n = images_.size(); i < n; ++i) {
 
         std::vector<VkImageView> attachments;
-        if (isImGui_) {
-            attachments.emplace_back(images_[i].GetImageView());
-        } else {
-            attachments.emplace_back(m_ColorImage->GetImageView());
-            attachments.emplace_back(m_DepthImage->GetImageView());
-            attachments.emplace_back(images_[i].GetImageView());
-        }
+        // if (isImGui_) {
+        //     attachments.emplace_back(images_[i].GetImageView());
+        // } else {
+        //     attachments.emplace_back(m_ColorImage->GetImageView());
+        //     attachments.emplace_back(m_DepthImage->GetImageView());
+        //     attachments.emplace_back(images_[i].GetImageView());
+        // }
+        attachments.emplace_back(images_[i].GetImageView());
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachments.size());
         frameBufferCI.pAttachments = attachments.data();
 

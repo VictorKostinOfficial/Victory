@@ -5,7 +5,7 @@
 
 #include "../VertexData.h"
 
-namespace VulkanRenderer {
+namespace VulkanRendererSpace {
 
 static VkVertexInputBindingDescription GetBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
