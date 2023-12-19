@@ -13,7 +13,6 @@
 #include "VulkanContext.h"
 #include "VulkanUtils.h"
 #include "VulkanSwapchain.h"
-#include "VulkanPipeline.h"
 #include "VulkanFrameBuffer.h"
 #include "VulkanImage.h"
 

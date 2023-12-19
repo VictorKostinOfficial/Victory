@@ -10,7 +10,6 @@
 
 #include "VulkanContext.h"
 #include "VulkanSwapchain.h"
-#include "VulkanPipeline.h"
 #include "VulkanBuffer.h"
 #include "VulkanFrameBuffer.h"
 #include "VulkanUtils.h"
@@ -792,8 +791,8 @@ private:
     }
 
     void CreatePipeline() {
-        std::vector<char> vsBuffer = Utils::ReadFile("triangle.vert.spv");
-        std::vector<char> fsBuffer = Utils::ReadFile("triangle.frag.spv");
+        std::vector<char> vsBuffer = Utils::ReadFile("graphics.vert.spv");
+        std::vector<char> fsBuffer = Utils::ReadFile("graphics.frag.spv");
         if (LoadShader(vsBuffer, &VS) != true) {
             printf("\nVertex shader was not loaded!");
             return;
