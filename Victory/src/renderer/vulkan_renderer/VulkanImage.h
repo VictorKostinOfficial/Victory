@@ -26,7 +26,7 @@ public:
 
     // Give buffer settings?
     bool LoadTexture(std::string&& path_, CreateImageSettings& settings_);
-    bool CreateImage(const CreateImageSettings& settings_);
+    bool CreateImage(const CreateImageSettings& settings_, bool bIsNeedTransition = false);
     bool CreateImageView(VkFormat format_, VkImageAspectFlags aspect_);
     bool CreateSampler();
 

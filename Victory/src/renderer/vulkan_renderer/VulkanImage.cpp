@@ -65,7 +65,7 @@ bool VulkanImage::LoadTexture(std::string&& path_, CreateImageSettings& settings
     return true;
 }
 
-bool VulkanImage::CreateImage(const CreateImageSettings &settings_) {
+bool VulkanImage::CreateImage(const CreateImageSettings &settings_, bool bIsNeedTransition) {
     m_Width = settings_.Width;
     m_Height = settings_.Height;
 
@@ -97,7 +97,13 @@ bool VulkanImage::CreateImage(const CreateImageSettings &settings_) {
 
     vkAllocateMemory(m_Context->GetDevice(), &allocInfo, nullptr, &m_ImageMemory);
 
-    return vkBindImageMemory(m_Context->GetDevice(), m_Image, m_ImageMemory, 0) == VK_SUCCESS;
+    vkBindImageMemory(m_Context->GetDevice(), m_Image, m_ImageMemory, 0);
+
+    if (bIsNeedTransition) {
+        TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    return true;
 }
 
 bool VulkanImage::CreateImageView(VkFormat format_, VkImageAspectFlags aspect_) {
@@ -234,7 +240,14 @@ void VulkanImage::TransitionImageLayout(VkImageLayout oldLayout_, VkImageLayout 
 
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else {
+        } else if (oldLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        }
+        else {
             throw std::invalid_argument("Unsupported layout transition!");
         }
 

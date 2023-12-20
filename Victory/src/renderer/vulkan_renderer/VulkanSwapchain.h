@@ -13,7 +13,7 @@ public:
 
     bool CreateSurface(GLFWwindow* window_);
     bool CreateSwapchain(GLFWwindow* window_);
-    bool CreateImages(VulkanFrameBuffer* frameBuffer_);
+    bool CreateImages();
     bool CreateImageViews(const VkImageAspectFlags aspectFlags_);
     bool CreateSamplers();
     // bool CreateImageViews();

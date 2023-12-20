@@ -83,7 +83,7 @@ bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
     return true;
 }
 
-bool VulkanSwapchain::CreateImages(VulkanFrameBuffer* frameBuffer_) {
+bool VulkanSwapchain::CreateImages() {
 
     std::vector<VkImage> images(m_ImageCount);
     images.resize(m_ImageCount);
@@ -94,21 +94,9 @@ bool VulkanSwapchain::CreateImages(VulkanFrameBuffer* frameBuffer_) {
 
     m_Images.clear();
     for (auto&& image : images) {
-        m_Images.push_back(VulkanImage(m_Context, frameBuffer_, image));
+        m_Images.push_back(VulkanImage(m_Context, nullptr, image));
     }
     return true;
-
-    // for (auto&& image : m_Images) {
-    //     CreateImageSettings settings{};
-    //     settings.Width = m_Extent.width;
-    //     settings.Height = m_Extent.height;
-    //     settings.Format = m_SurfaceFormat.format;
-    //     settings.Tiling = VK_IMAGE_TILING_LINEAR;
-    //     settings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    //     settings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    //     settings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
-    //     image.CreateImage(settings);
-    // }
 }
 
 bool VulkanSwapchain::CreateImageViews(const VkImageAspectFlags aspectFlags_) {

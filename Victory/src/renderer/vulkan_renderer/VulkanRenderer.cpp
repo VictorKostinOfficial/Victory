@@ -51,8 +51,6 @@ public:
         delete m_FrameBuffer;
 
         vkDestroyPipeline(m_Context->GetDevice(), m_Pipeline, nullptr);
-        vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
-        vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
         vkDestroyPipelineLayout(m_Context->GetDevice(), m_PipelineLayout, nullptr);
         vkDestroyDescriptorSetLayout(m_Context->GetDevice(), m_DescriptorSetLayout, nullptr);
         vkDestroyDescriptorPool(m_Context->GetDevice(), m_DescriptorPool, nullptr);
@@ -458,6 +456,9 @@ private:
 
         vkCreateGraphicsPipelines(m_Context->GetDevice(), nullptr, 1, 
             &pipelineCI, nullptr, &m_Pipeline);
+
+        vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
+        vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
     }
 
     void CreateFrameBuffer(const uint32_t minImageCount_) {
@@ -551,12 +552,10 @@ public:
         m_FrameBuffer->CleanupAll();
         delete m_FrameBuffer;
 
-        vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
-        vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
-
         vkDestroyPipeline(m_Context->GetDevice(), m_Pipeline, nullptr);
         vkDestroyRenderPass(m_Context->GetDevice(), m_RenderPass, nullptr);
 
+        vkDestroyPipelineCache(m_Context->GetDevice(), m_PipelineCash, nullptr);
         vkDestroyPipelineLayout(m_Context->GetDevice(), m_PipelineLayout, nullptr);
         vkDestroyDescriptorSetLayout(m_Context->GetDevice(), m_DescriptorSetLayout, nullptr);
     }
@@ -564,6 +563,7 @@ public:
     void InitResources(const uint32_t minImageCount_) {
         CreateDescriptorSetLayout();
         CreatePipelineLayout();
+        CreatePipelineCash();
 
         CreateRenderPass();
         CreatePipeline();
@@ -650,7 +650,7 @@ public:
             viewportImageSettings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             viewportImageSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
             viewportImageSettings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
-            image.CreateImage(viewportImageSettings);
+            image.CreateImage(viewportImageSettings, true);
             image.CreateImageView(viewportImageSettings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
         }
 
@@ -674,6 +674,12 @@ public:
     }
 
 private:
+
+    void CreatePipelineCash() {
+        VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		vkCreatePipelineCache(m_Context->GetDevice(), &pipelineCacheCreateInfo, nullptr, &m_PipelineCash);
+    }
 
     void CreateRenderPass() {
         // VkAttachmentDescription colorAttachment{};
@@ -724,8 +730,6 @@ private:
         subpass.pColorAttachments = &colorAttachmentRef;
         // subpass.pDepthStencilAttachment = &depthAttachmentRef;
         // subpass.pResolveAttachments = &colorAttachmentResolveRef;
-        // The index of the attachment in this array is directly referenced from the 
-        // fragment shader with the layout(location = 0) out vec4 outColor directive!
 
         std::array<VkSubpassDependency, 1> dependencies;
         dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -750,6 +754,9 @@ private:
 
         vkCreateRenderPass(m_Context->GetDevice(), 
             &renderPassCI, nullptr, &m_RenderPass);
+
+        vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
+        vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
     }
 
     void CreateDescriptorSetLayout() {
@@ -857,7 +864,7 @@ private:
         VkPipelineMultisampleStateCreateInfo multisampleStateCI{};
         multisampleStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampleStateCI.sampleShadingEnable = VK_FALSE;
-        multisampleStateCI.minSampleShading = .2f;
+        // multisampleStateCI.minSampleShading = .2f;
         // multisampleStateCI.rasterizationSamples = m_Context->GetSampleCount();
         multisampleStateCI.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -875,12 +882,12 @@ private:
                                                 | VK_COLOR_COMPONENT_B_BIT
                                                 | VK_COLOR_COMPONENT_A_BIT;
         colorBlendAttachmentState.blendEnable = VK_FALSE;
-        colorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-        colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-        colorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-        colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+        // colorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        // colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+        // colorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+        // colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        // colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        // colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 
         VkPipelineColorBlendStateCreateInfo colorBlendStateCI{};
         colorBlendStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -900,12 +907,12 @@ private:
 
         VkPipelineDynamicStateCreateInfo dynamicStateCI{};
         dynamicStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        dynamicStateCI.dynamicStateCount = 2;
+        dynamicStateCI.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicStateCI.pDynamicStates = dynamicStates.data();
 
         VkGraphicsPipelineCreateInfo pipelineCI{};
         pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineCI.stageCount = 2;
+        pipelineCI.stageCount = static_cast<uint32_t>(shaderStageCIs.size());
         pipelineCI.pStages = shaderStageCIs.data();
         pipelineCI.pVertexInputState = &vertexInputStateCI;
         pipelineCI.pInputAssemblyState = &inputAssemblyStateCI;
@@ -918,13 +925,15 @@ private:
         pipelineCI.pDynamicState = &dynamicStateCI;
         pipelineCI.layout = m_PipelineLayout;
         pipelineCI.renderPass = m_RenderPass;
-        pipelineCI.subpass = 0; // Index of render pass subpass
+        pipelineCI.subpass = 0;
         pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
-        pipelineCI.basePipelineIndex = -1;
+        // pipelineCI.basePipelineIndex = -1;
 
         vkCreateGraphicsPipelines(m_Context->GetDevice(), 
-            nullptr, 1, &pipelineCI, nullptr, &m_Pipeline);
+            m_PipelineCash, 1, &pipelineCI, nullptr, &m_Pipeline);
 
+        vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
+        vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
     }
 
     void CreateFrameBuffers(const uint32_t minImageCount_) {
@@ -946,7 +955,7 @@ private:
             viewportImageSettings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             viewportImageSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
             viewportImageSettings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
-            image.CreateImage(viewportImageSettings);
+            image.CreateImage(viewportImageSettings, true);
             image.CreateImageView(viewportImageSettings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
         }
 
@@ -974,6 +983,7 @@ private:
     VulkanSwapchain* m_Swapchain{ nullptr };
     VulkanFrameBuffer* m_FrameBuffer{ nullptr };
 
+    VkPipelineCache m_PipelineCash{ VK_NULL_HANDLE };
     VkRenderPass m_RenderPass{ VK_NULL_HANDLE };
     VkPipeline m_Pipeline{ VK_NULL_HANDLE };
 
@@ -1013,7 +1023,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    m_Window = glfwCreateWindow(1280, 720, "Victory", nullptr, nullptr);
+    m_Window = glfwCreateWindow(1920, 1080, "Victory", nullptr, nullptr);
     if (!m_Window) {
         glfwTerminate();
         throw std::runtime_error("GLFW Window was not created!");
@@ -1046,7 +1056,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImages(nullptr),
+    CHK_RESULT(m_VulkanSwapchain->CreateImages(),
         "Surface images were not created!");
 
     CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
@@ -1058,7 +1068,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     m_ImGuiPipeline = new ImGuiPipeline(m_VulkanContext, m_VulkanSwapchain, m_Window);
     m_ImGuiPipeline->Init();
     m_ImGuiPipeline->InitResources(MAX_FRAMES_IN_FLIGHT);
-    m_ImGuiPipeline->InitDescriptorSets(m_ViewportPipeline->GetImages());
+    // m_ImGuiPipeline->InitDescriptorSets(m_ViewportPipeline->GetImages());
 
     {
         m_Models.push_back(VulkanModel(m_VulkanContext, m_ViewportPipeline->GetVulkanFrameBuffer()));
@@ -1147,8 +1157,8 @@ void VulkanRenderer::BeginFrame() {
 
 void VulkanRenderer::RecordCommandBuffer() {
     m_ImGuiPipeline->NewFrame(m_CurrentFrame);
-    m_ImGuiPipeline->DrawFrame(m_CurrentFrame, m_ImageIndex);
     m_ViewportPipeline->DrawFrame(m_CurrentFrame, m_ImageIndex, m_Models, m_Buffers);
+    m_ImGuiPipeline->DrawFrame(m_CurrentFrame, m_ImageIndex);
 }
 
 void VulkanRenderer::EndFrame() {
@@ -1159,8 +1169,8 @@ void VulkanRenderer::EndFrame() {
     const std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
     std::array<VkCommandBuffer, 2> submitCommandBuffers = {
-        m_ImGuiPipeline->GetCommandBuffer(m_CurrentFrame),
-        m_ViewportPipeline->GetCommandBuffer(m_CurrentFrame)};
+        m_ViewportPipeline->GetCommandBuffer(m_CurrentFrame),
+        m_ImGuiPipeline->GetCommandBuffer(m_CurrentFrame)};
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1260,7 +1270,7 @@ void VulkanRenderer::RecreateSwapchain() {
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImages(m_ImGuiPipeline->GetVulkanFrameBuffer()),
+    CHK_RESULT(m_VulkanSwapchain->CreateImages(),
         "Swapchain was not created!");
 
     CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
@@ -1269,5 +1279,5 @@ void VulkanRenderer::RecreateSwapchain() {
     m_ViewportPipeline->RecreateFrameBuffer();
 
     m_ImGuiPipeline->RecreateFrameBuffer();
-    m_ImGuiPipeline->RecreateDescriptorSets(m_ViewportPipeline->GetImages());
+    // m_ImGuiPipeline->RecreateDescriptorSets(m_ViewportPipeline->GetImages());
 }

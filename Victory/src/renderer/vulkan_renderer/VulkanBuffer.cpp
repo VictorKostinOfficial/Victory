@@ -64,19 +64,20 @@ bool VulkanBuffer::CreateDescriptorPool(uint32_t maxFrames_) {
     poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSize[0].descriptorCount = static_cast<uint32_t>(maxFrames_);
     poolSize[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSize[1].descriptorCount = static_cast<uint32_t>(maxFrames_) * 2;
+    poolSize[1].descriptorCount = static_cast<uint32_t>(maxFrames_);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSize.size());
     poolInfo.pPoolSizes = poolSize.data();
-    poolInfo.maxSets = static_cast<uint32_t>(maxFrames_) * 2;
+    poolInfo.maxSets = static_cast<uint32_t>(maxFrames_);
 
     return vkCreateDescriptorPool(m_Context->GetDevice(), &poolInfo, nullptr, &m_DescriptorPool) == VK_SUCCESS;
 }
 
-bool VulkanBuffer::CreateDescriptorSets(uint32_t maxFrames_, const VkSampler& sampler_, const VkImageView& imageView_, VkDescriptorSetLayout layout_) {
+bool VulkanBuffer::CreateDescriptorSets(uint32_t maxFrames_, const VkSampler& sampler_, 
+        const VkImageView& imageView_, VkDescriptorSetLayout layout_) {
     std::vector<VkDescriptorSetLayout> layouts(maxFrames_, layout_);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
