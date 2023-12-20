@@ -13,17 +13,8 @@ public:
 
     bool CreateSurface(GLFWwindow* window_);
     bool CreateSwapchain(GLFWwindow* window_);
-    bool CreateImages();
-    bool CreateImageViews(const VkImageAspectFlags aspectFlags_);
-    bool CreateSamplers();
-    // bool CreateImageViews();
-    // bool CreateImageView(VkImage imgage_, VkFormat format_, 
-    //     VkImageAspectFlags aspectFlags_, VkImageView& imageView_);
+    void GetImages(std::vector<VkImage>& images_);
 
-    // void CleanupImageViews();
-    void CleanupSamplers();
-    void CleanupImageViews();
-    void CleanupImages();
     void CleanupSwapchain();
     void CleanupSurface();
     void CleanupAll();
@@ -32,11 +23,6 @@ public:
     VkSwapchainKHR GetSwapchain() const;
     VkSurfaceFormatKHR GetSurfaceFormat() const;
     VkExtent2D GetExtent() const;
-    // const std::vector<VkImageView>& GetImageViews() const;
-
-    inline const std::vector<VulkanImage>& GetImages() const {
-        return m_Images;
-    }
 
     inline const uint32_t GetImageCount() const {
         return m_ImageCount;
@@ -51,7 +37,6 @@ private:
 private:
 
     VulkanContext* m_Context;
-    VulkanFrameBuffer* m_FrameBuffer;
 
     VkSurfaceKHR m_Surface{VK_NULL_HANDLE};
     VkSwapchainKHR m_Swapchain{VK_NULL_HANDLE};
@@ -60,9 +45,5 @@ private:
     VkSurfaceFormatKHR m_SurfaceFormat;
     VkPresentModeKHR m_PresentMode;
 
-    // TODO: make list of VulkanImages
     uint32_t m_ImageCount;
-    std::vector<VulkanImage> m_Images;
-    // std::vector<VkImage> m_Images;
-    // std::vector<VkImageView> m_ImageViews;
 };

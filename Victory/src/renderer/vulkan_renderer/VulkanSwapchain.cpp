@@ -83,55 +83,9 @@ bool VulkanSwapchain::CreateSwapchain(GLFWwindow* window_) {
     return true;
 }
 
-bool VulkanSwapchain::CreateImages() {
-
-    std::vector<VkImage> images(m_ImageCount);
-    images.resize(m_ImageCount);
-    if (vkGetSwapchainImagesKHR(m_Context->GetDevice(), m_Swapchain, &m_ImageCount, images.data()) != VK_SUCCESS) {
+void VulkanSwapchain::GetImages(std::vector<VkImage> &images_) {
+    if (vkGetSwapchainImagesKHR(m_Context->GetDevice(), m_Swapchain, &m_ImageCount, images_.data()) != VK_SUCCESS) {
         printf("\nSwapchain images were not geted!");
-        return false;
-    }
-
-    m_Images.clear();
-    for (auto&& image : images) {
-        m_Images.push_back(VulkanImage(m_Context, nullptr, image));
-    }
-    return true;
-}
-
-bool VulkanSwapchain::CreateImageViews(const VkImageAspectFlags aspectFlags_) {
-    for (auto&& image : m_Images) {
-        image.CreateImageView(m_SurfaceFormat.format, aspectFlags_);
-    }
-    return true;
-}
-
-bool VulkanSwapchain::CreateSamplers() {
-    for (auto&& image : m_Images) {
-        image.CreateSampler();
-    }
-    return true;
-}
-
-void VulkanSwapchain::CleanupSamplers() {
-    auto&& device = m_Context->GetDevice();
-    for (auto&& image : m_Images) {
-        image.CleanupSampler();
-    }
-}
-
-void VulkanSwapchain::CleanupImageViews()
-{
-    auto&& device = m_Context->GetDevice();
-    for (auto&& image : m_Images) {
-        image.CleanupImageView();
-    }
-}
-
-void VulkanSwapchain::CleanupImages() {
-    auto&& device = m_Context->GetDevice();
-    for (auto&& image : m_Images) {
-        image.CleanupImage();
     }
 }
 
@@ -144,8 +98,6 @@ void VulkanSwapchain::CleanupSurface() {
 }
 
 void VulkanSwapchain::CleanupAll() {
-    CleanupSamplers();
-    CleanupImageViews();
     CleanupSwapchain();
     CleanupSurface();
 }
@@ -165,10 +117,6 @@ VkSurfaceFormatKHR VulkanSwapchain::GetSurfaceFormat() const {
 VkExtent2D VulkanSwapchain::GetExtent() const {
     return m_Extent;
 }
-
-// const std::vector<VkImageView>& VulkanSwapchain::GetImageViews() const{
-//     return m_ImageViews;
-// }
 
 //----------------------------------------------------------------------
 //--------------------------------PRIVATE-------------------------------

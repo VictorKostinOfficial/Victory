@@ -1,5 +1,6 @@
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <unordered_map>
 
 #include "VulkanFrameBuffer.h"
 
@@ -9,8 +10,9 @@
 #include "VulkanContext.h"
 #include "VulkanImage.h"
 
-VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_)
-    : m_Context{context_} {
+VulkanFrameBuffer::VulkanFrameBuffer(VulkanContext* context_, VkRenderPass renderPass_)
+    : m_Context{context_}
+    , m_RenderPass{renderPass_} {
 }
 
 bool VulkanFrameBuffer::CreateCommandPool(QueueIndex index_) {
@@ -22,31 +24,71 @@ bool VulkanFrameBuffer::CreateCommandPool(QueueIndex index_) {
     return vkCreateCommandPool(m_Context->GetDevice(), &commandPoolCI, nullptr, &m_CommandPool) == VK_SUCCESS;
 }
 
-bool VulkanFrameBuffer::CreateFrameBuffers(VkRenderPass pass_, const VkExtent2D& extent_, 
-        const std::vector<VulkanImage>& images_, const bool isImGui_ /* = false */) {
+bool VulkanFrameBuffer::CreateFrameBuffers(const CreateImageSettings& settings_, uint32_t frameBufferCount_) {
     VkFramebufferCreateInfo frameBufferCI{};
     frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    frameBufferCI.renderPass = pass_;
-    frameBufferCI.width = extent_.width;
-    frameBufferCI.height = extent_.height;
+    frameBufferCI.renderPass = m_RenderPass;
+    frameBufferCI.width = settings_.Width;
+    frameBufferCI.height = settings_.Height;
     frameBufferCI.layers = 1;
 
-    auto&& device = m_Context->GetDevice();
-    m_FrameBuffers.resize(images_.size());
-    // auto&& images = m_Swapchain->GetImages();
-    // m_FrameBuffers.resize(images.size());
+    VkDevice device = m_Context->GetDevice();
 
-    for(size_t i{0}, n = images_.size(); i < n; ++i) {
+    m_FrameBuffers.resize(frameBufferCount_);
+    m_FrameImages.resize(frameBufferCount_, VulkanImage(m_Context, this));
 
+    for (VulkanImage& image : m_FrameImages) {
+        image.CreateImage(settings_);
+        image.CreateImageView(settings_.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
+
+    for(size_t i{0}, n = frameBufferCount_; i < n; ++i) {
         std::vector<VkImageView> attachments;
-        // if (isImGui_) {
-        //     attachments.emplace_back(images_[i].GetImageView());
-        // } else {
-        //     attachments.emplace_back(m_ColorImage->GetImageView());
-        //     attachments.emplace_back(m_DepthImage->GetImageView());
-        //     attachments.emplace_back(images_[i].GetImageView());
-        // }
-        attachments.emplace_back(images_[i].GetImageView());
+        attachments.reserve(m_AttachmentImages.size() + 1);
+        attachments.emplace_back(m_FrameImages[i].GetImageView());
+        for (auto&& image : m_AttachmentImages) {
+            attachments.emplace_back(image.GetImageView());
+        }
+
+        frameBufferCI.attachmentCount = static_cast<uint32_t>(attachments.size());
+        frameBufferCI.pAttachments = attachments.data();
+
+        if (vkCreateFramebuffer(device, &frameBufferCI, nullptr, &m_FrameBuffers[i]) != VK_SUCCESS) {
+            printf("\nFrame buffer %zu, was not created!", i);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool VulkanFrameBuffer::CreateFrameBuffers(const CreateImageSettings &settings_, std::vector<VkImage>& images_) {
+    VkFramebufferCreateInfo frameBufferCI{};
+    frameBufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    frameBufferCI.renderPass = m_RenderPass;
+    frameBufferCI.width = settings_.Width;
+    frameBufferCI.height = settings_.Height;
+    frameBufferCI.layers = 1;
+
+    VkDevice device = m_Context->GetDevice();
+
+    const size_t imageCount{ images_.size() };
+    m_FrameBuffers.resize(imageCount);
+    m_FrameImages.reserve(imageCount);
+
+    for (VkImage& image : images_) {
+        VulkanImage& newImage{ m_FrameImages.emplace_back(m_Context, this, image) };
+        newImage.CreateImageView(settings_.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
+
+    for(size_t i{0}, n = imageCount; i < n; ++i) {
+        std::vector<VkImageView> attachments;
+        attachments.reserve(m_AttachmentImages.size() + 1);
+        attachments.emplace_back(m_FrameImages[i].GetImageView());
+        for (auto&& image : m_AttachmentImages) {
+            attachments.emplace_back(image.GetImageView());
+        }
+
         frameBufferCI.attachmentCount = static_cast<uint32_t>(attachments.size());
         frameBufferCI.pAttachments = attachments.data();
 
@@ -70,40 +112,46 @@ bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     return vkAllocateCommandBuffers(m_Context->GetDevice(), &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
 
-// TODO: Create one fucntion for Resuouce creation
-bool VulkanFrameBuffer::CreateDepthResources(VkFormat depthFormat_, const VkExtent2D& extent_) {
-    m_DepthImage = new VulkanImage(m_Context, this);
-    CreateImageSettings settings{};
-    settings.Width = extent_.width;
-    settings.Height = extent_.height;
-    settings.Format = depthFormat_;
-    settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
-    settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    // TODO: Dynamic change msaa
-    settings.SampleCount = m_Context->GetSampleCount();
+void VulkanFrameBuffer::AddAttachment(const CreateImageSettings settings_) {
+    VulkanImage& newAttachment = m_AttachmentImages.emplace_back(m_Context, this);
 
-    m_DepthImage->CreateImage(settings);
-    m_DepthImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
-    return true;
+    newAttachment.CreateImage(settings_);
+    newAttachment.CreateImageView(settings_.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-bool VulkanFrameBuffer::CreateColorResources(VkFormat colorFormat_, const VkExtent2D& extent_) {
-    m_ColorImage = new VulkanImage(m_Context, this);
-    CreateImageSettings settings{};
-    settings.Width = extent_.width;
-    settings.Height = extent_.height;
-    settings.Format = colorFormat_;
-    settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
-    settings.Usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    // TODO: Dynamic change msaa
-    settings.SampleCount = m_Context->GetSampleCount();
+// bool VulkanFrameBuffer::CreateDepthResources(VkFormat depthFormat_, const VkExtent2D& extent_) {
+//     m_DepthImage = new VulkanImage(m_Context, this);
+//     CreateImageSettings settings{};
+//     settings.Width = extent_.width;
+//     settings.Height = extent_.height;
+//     settings.Format = depthFormat_;
+//     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+//     settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+//     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+//     // TODO: Dynamic change msaa
+//     settings.SampleCount = m_Context->GetSampleCount();
 
-    m_ColorImage->CreateImage(settings);
-    m_ColorImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-    return true;
-}
+//     m_DepthImage->CreateImage(settings);
+//     m_DepthImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
+//     return true;
+// }
+
+// bool VulkanFrameBuffer::CreateColorResources(VkFormat colorFormat_, const VkExtent2D& extent_) {
+//     m_ColorImage = new VulkanImage(m_Context, this);
+//     CreateImageSettings settings{};
+//     settings.Width = extent_.width;
+//     settings.Height = extent_.height;
+//     settings.Format = colorFormat_;
+//     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+//     settings.Usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+//     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+//     // TODO: Dynamic change msaa
+//     settings.SampleCount = m_Context->GetSampleCount();
+
+//     m_ColorImage->CreateImage(settings);
+//     m_ColorImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+//     return true;
+// }
 
 VkCommandBuffer VulkanFrameBuffer::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -142,30 +190,28 @@ void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_) {
     vkFreeCommandBuffers(m_Context->GetDevice(), m_CommandPool, 1, &commandBuffer_);
 }
 
-void VulkanFrameBuffer::CleanupFrameBuffers() {
+void VulkanFrameBuffer::CleanupFrameBuffers(bool cleanupAll_) {
     for (auto&& frameBuffer : m_FrameBuffers) {
         vkDestroyFramebuffer(m_Context->GetDevice(), frameBuffer, nullptr);
     }
-}
+    m_FrameBuffers.clear();
 
-void VulkanFrameBuffer::CleanupDepthResources() {
-    m_DepthImage->CleanupAll();
-}
-
-void VulkanFrameBuffer::CleanupColorResources() {
-    m_ColorImage->CleanupAll();
+    for (auto&& image : m_FrameImages) {
+        image.CleanupImageView();
+        if (cleanupAll_) {
+            image.CleanupImage();
+            image.FreeImageMemory();
+        }
+    }
+    m_FrameImages.clear();
 }
 
 void VulkanFrameBuffer::CleanupCommandPool() {
     vkDestroyCommandPool(m_Context->GetDevice(), m_CommandPool, nullptr);
 }
 
-void VulkanFrameBuffer::CleanupAll(bool bCleanupResources /* = false*/) {
-    if (bCleanupResources) {
-        CleanupColorResources();
-        CleanupDepthResources();
-    }
-    CleanupFrameBuffers();
+void VulkanFrameBuffer::CleanupAll(bool cleanupAll_) {
+    CleanupFrameBuffers(cleanupAll_);
     CleanupCommandPool();
 }
 

@@ -47,7 +47,7 @@ public:
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
-        m_FrameBuffer->CleanupAll();
+        m_FrameBuffer->CleanupAll(false);
         delete m_FrameBuffer;
 
         vkDestroyPipeline(m_Context->GetDevice(), m_Pipeline, nullptr);
@@ -73,6 +73,10 @@ public:
     };
 
     void InitResources(const uint32_t minImageCount_) {
+        m_ImGuiImageSettings.Format = m_Swapchain->GetSurfaceFormat().format;
+        m_ImGuiImageSettings.Height = m_Swapchain->GetExtent().height;
+        m_ImGuiImageSettings.Width = m_Swapchain->GetExtent().width;
+
         CreateRenderPass();
         CreateDescriptorPool();
         CreateDescriptorSetLayout();
@@ -144,9 +148,13 @@ public:
         }
     }
 
-    void RecreateFrameBuffer() {
-        m_FrameBuffer->CleanupFrameBuffers();
-        m_FrameBuffer->CreateFrameBuffers(m_RenderPass, m_Swapchain->GetExtent(), m_Swapchain->GetImages());
+    void RecreateFrameBuffer(const VkExtent2D extent_) {
+        m_ImGuiImageSettings.Width = extent_.width;
+        m_ImGuiImageSettings.Height = extent_.height;
+        m_FrameBuffer->CleanupFrameBuffers(false);
+        std::vector<VkImage> images(m_Swapchain->GetImageCount());
+        m_Swapchain->GetImages(images);
+        m_FrameBuffer->CreateFrameBuffers(m_ImGuiImageSettings, images);
     }
 
     void RecreateDescriptorSets(const std::vector<VulkanImage>& images_) {
@@ -462,10 +470,11 @@ private:
     }
 
     void CreateFrameBuffer(const uint32_t minImageCount_) {
-        m_FrameBuffer = new VulkanFrameBuffer(m_Context);
+        m_FrameBuffer = new VulkanFrameBuffer(m_Context, m_RenderPass);
         m_FrameBuffer->CreateCommandPool(QueueIndex::eGraphics);
-        m_FrameBuffer->CreateFrameBuffers(m_RenderPass, m_Swapchain->GetExtent(), 
-                m_Swapchain->GetImages(), true);
+        std::vector<VkImage> images(m_Swapchain->GetImageCount());
+        m_Swapchain->GetImages(images);
+        m_FrameBuffer->CreateFrameBuffers(m_ImGuiImageSettings, images);
         m_FrameBuffer->CreateCommandBuffer(minImageCount_);
     }
 
@@ -514,6 +523,8 @@ private:
 
 private:
 
+    CreateImageSettings m_ImGuiImageSettings{};
+
     GLFWwindow* m_Window{ nullptr };
     VulkanContext* m_Context{ nullptr };
     VulkanSwapchain* m_Swapchain{ nullptr };
@@ -543,13 +554,7 @@ public:
     }
 
     ~ViewportPipeline() {
-        for (auto&& image : m_Images) {
-            image.CleanupImageView();
-            image.FreeImageMemory();
-            image.CleanupImage();
-        }
-
-        m_FrameBuffer->CleanupAll();
+        m_FrameBuffer->CleanupAll(true);
         delete m_FrameBuffer;
 
         vkDestroyPipeline(m_Context->GetDevice(), m_Pipeline, nullptr);
@@ -561,6 +566,14 @@ public:
     }
 
     void InitResources(const uint32_t minImageCount_) {
+        m_ViewportImageSettings.Width = m_Swapchain->GetExtent().width;
+        m_ViewportImageSettings.Height =  m_Swapchain->GetExtent().height;
+        m_ViewportImageSettings.Format = m_Swapchain->GetSurfaceFormat().format;
+        m_ViewportImageSettings.Tiling = VK_IMAGE_TILING_LINEAR;
+        m_ViewportImageSettings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        m_ViewportImageSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        m_ViewportImageSettings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
+
         CreateDescriptorSetLayout();
         CreatePipelineLayout();
         CreatePipelineCash();
@@ -630,35 +643,16 @@ public:
         vkEndCommandBuffer(commandBuffer);
     }
 
-    void RecreateFrameBuffer() {
-        m_FrameBuffer->CleanupFrameBuffers();
-        
-        for (auto&& image : m_Images)
-        {
-            image.CleanupImageView();
-            image.FreeImageMemory();
-            image.CleanupImage();
-        }
+    void RecreateFrameBuffer(const VkExtent2D extent_) {
+        m_ViewportImageSettings.Width = extent_.width;
+        m_ViewportImageSettings.Height = extent_.height;
 
-        m_Images.resize(m_Swapchain->GetImageCount(), VulkanImage(m_Context, m_FrameBuffer));
-        for (auto&& image : m_Images) {
-            CreateImageSettings viewportImageSettings{};
-            viewportImageSettings.Width = m_Swapchain->GetExtent().width;
-            viewportImageSettings.Height =  m_Swapchain->GetExtent().height;
-            viewportImageSettings.Format = m_Swapchain->GetSurfaceFormat().format;
-            viewportImageSettings.Tiling = VK_IMAGE_TILING_LINEAR;
-            viewportImageSettings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-            viewportImageSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-            viewportImageSettings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
-            image.CreateImage(viewportImageSettings, true);
-            image.CreateImageView(viewportImageSettings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-        }
-
-        m_FrameBuffer->CreateFrameBuffers(m_RenderPass, m_Swapchain->GetExtent(), m_Images);
+        m_FrameBuffer->CleanupFrameBuffers(true);
+        m_FrameBuffer->CreateFrameBuffers(m_ViewportImageSettings, m_Swapchain->GetImageCount());
     }
 
-    inline std::vector<VulkanImage>& GetImages() {
-        return m_Images;
+    inline const std::vector<VulkanImage>& GetImages() const {
+        return m_FrameBuffer->GetFrameImages();
     }
 
     inline VkCommandBuffer GetCommandBuffer(const uint32_t currentFrame_) {
@@ -937,7 +931,7 @@ private:
     }
 
     void CreateFrameBuffers(const uint32_t minImageCount_) {
-        m_FrameBuffer = new VulkanFrameBuffer(m_Context);
+        m_FrameBuffer = new VulkanFrameBuffer(m_Context, m_RenderPass);
         m_FrameBuffer->CreateCommandPool(QueueIndex::eGraphics);
       
         // m_ViewportFrameBuffer->CreateDepthResources(m_VulkanPipeline->FindDepthFormat()
@@ -945,21 +939,7 @@ private:
         // m_ViewportFrameBuffer->CreateColorResources(m_VulkanSwapchain->GetSurfaceFormat().format
         //         , m_VulkanSwapchain->GetExtent());
 
-        m_Images.resize(m_Swapchain->GetImageCount(), VulkanImage(m_Context, m_FrameBuffer));
-        for (auto&& image : m_Images) {
-            CreateImageSettings viewportImageSettings{};
-            viewportImageSettings.Width = m_Swapchain->GetExtent().width;
-            viewportImageSettings.Height =  m_Swapchain->GetExtent().height;
-            viewportImageSettings.Format = m_Swapchain->GetSurfaceFormat().format;
-            viewportImageSettings.Tiling = VK_IMAGE_TILING_LINEAR;
-            viewportImageSettings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-            viewportImageSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-            viewportImageSettings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
-            image.CreateImage(viewportImageSettings, true);
-            image.CreateImageView(viewportImageSettings.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-        }
-
-        m_FrameBuffer->CreateFrameBuffers(m_RenderPass, m_Swapchain->GetExtent(), m_Images);
+        m_FrameBuffer->CreateFrameBuffers(m_ViewportImageSettings, m_Swapchain->GetImageCount());
         m_FrameBuffer->CreateCommandBuffer(minImageCount_);
     }
 
@@ -978,6 +958,7 @@ private:
     }
 
 private:
+    CreateImageSettings m_ViewportImageSettings{};
 
     VulkanContext* m_Context{ nullptr };
     VulkanSwapchain* m_Swapchain{ nullptr };
@@ -990,8 +971,7 @@ private:
     VkDescriptorSetLayout m_DescriptorSetLayout{ VK_NULL_HANDLE };
     VkPipelineLayout m_PipelineLayout{ VK_NULL_HANDLE };
 
-    std::vector<VulkanImage> m_Images;
-
+    // std::vector<VulkanImage> m_Images;
     VkShaderModule VS{VK_NULL_HANDLE};
     VkShaderModule FS{VK_NULL_HANDLE};
 };
@@ -1056,11 +1036,11 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImages(),
-        "Surface images were not created!");
+    // CHK_RESULT(m_VulkanSwapchain->CreateImages(),
+    //     "Surface images were not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
-        "Image views were not created!");
+    // CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
+    //     "Image views were not created!");
 
     m_ViewportPipeline = new ViewportPipeline(m_VulkanContext, m_VulkanSwapchain);
     m_ViewportPipeline->InitResources(MAX_FRAMES_IN_FLIGHT);
@@ -1264,20 +1244,13 @@ void VulkanRenderer::RecreateSwapchain() {
     VkDevice device = m_VulkanContext->GetDevice();
     vkDeviceWaitIdle(device);
 
-    m_VulkanSwapchain->CleanupImageViews();
     m_VulkanSwapchain->CleanupSwapchain();
 
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImages(),
-        "Swapchain was not created!");
+    m_ViewportPipeline->RecreateFrameBuffer(m_VulkanSwapchain->GetExtent());
 
-    CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
-        "Image views were not created!");
-
-    m_ViewportPipeline->RecreateFrameBuffer();
-
-    m_ImGuiPipeline->RecreateFrameBuffer();
+    m_ImGuiPipeline->RecreateFrameBuffer(m_VulkanSwapchain->GetExtent());
     // m_ImGuiPipeline->RecreateDescriptorSets(m_ViewportPipeline->GetImages());
 }
