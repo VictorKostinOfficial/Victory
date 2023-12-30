@@ -5,9 +5,11 @@
 
 #include "../VertexData.h"
 
-namespace VulkanRendererSpace {
+namespace Victory 
+{
 
-static VkVertexInputBindingDescription GetBindingDescription() {
+static VkVertexInputBindingDescription GetBindingDescription() 
+{
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(VertexData);
@@ -16,7 +18,8 @@ static VkVertexInputBindingDescription GetBindingDescription() {
     return bindingDescription;
 }
 
-static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() {
+static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() 
+{
     std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;

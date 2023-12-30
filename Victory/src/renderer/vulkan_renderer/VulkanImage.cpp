@@ -83,6 +83,7 @@ bool VulkanImage::CreateImage(const CreateImageSettings &settings_, bool bIsNeed
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = settings_.Usage;
     imageInfo.samples = settings_.SampleCount;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.flags = 0;
 
     vkCreateImage(m_Context->GetDevice(), &imageInfo, nullptr, &m_Image);
@@ -106,7 +107,8 @@ bool VulkanImage::CreateImage(const CreateImageSettings &settings_, bool bIsNeed
     return true;
 }
 
-bool VulkanImage::CreateImageView(VkFormat format_, VkImageAspectFlags aspect_) {
+bool VulkanImage::CreateImageView(VkFormat format_, VkImageAspectFlags aspect_)
+{
     VkImageViewCreateInfo imageViewCI{};
     imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;

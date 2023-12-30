@@ -89,17 +89,50 @@ public:
     void NewFrame(const uint32_t currentFrame_) {
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
+
         ImGuiIO &io = ImGui::GetIO();
         ImGui::NewFrame();
         {
+            static bool dockspaceOpen = true;
+		    static bool opt_fullscreen_persistant = true;
+		    bool opt_fullscreen = opt_fullscreen_persistant;
+
+		    static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+            ImGuiWindowFlags window_flags{ ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking };
+
+            if (opt_fullscreen) {
+			    ImGuiViewport* viewport = ImGui::GetMainViewport();
+			    ImGui::SetNextWindowPos(viewport->Pos);
+			    ImGui::SetNextWindowSize(viewport->Size);
+			    ImGui::SetNextWindowViewport(viewport->ID);
+			    // ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+			    // ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+			    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+			    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+		    }
+
+            if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
+			    window_flags |= ImGuiWindowFlags_NoBackground;
+
+            ImGui::Begin("DockSpace Demo", &dockspaceOpen, window_flags);
+            {
+                ImGuiIO& io = ImGui::GetIO();
+		        if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+			        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+			        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+		        }
+            }
+            ImGui::End();
+
             ImGui::ShowDemoWindow();
             ImGui::ShowMetricsWindow();
         
-            // ImGui::Begin("Viewport");
-            // ImGuiIO& io = ImGui::GetIO();
-		    // ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-            // ImGui::Image(m_DescriptorSets[currentFrame_], ImVec2{viewportPanelSize.x,viewportPanelSize.y});
-		    // ImGui::End();
+            ImGui::Begin("Viewport");
+            {
+		        ImVec2 viewportPanelSize{ ImGui::GetContentRegionAvail() };
+                ImGui::Image(m_DescriptorSets[currentFrame_], ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
+            }
+		    ImGui::End();
         }
         ImGui::Render();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -573,6 +606,7 @@ public:
         m_ViewportImageSettings.Usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         m_ViewportImageSettings.Properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         m_ViewportImageSettings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
+        m_ViewportImageSettings.NeedTransition = true;
 
         CreateDescriptorSetLayout();
         CreatePipelineLayout();
@@ -686,16 +720,6 @@ private:
         // colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         // colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-        // VkAttachmentDescription depthAttachment{};
-        // depthAttachment.format = FindDepthFormat();
-        // depthAttachment.samples = m_Context->GetSampleCount();
-        // depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        // depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        // depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        // depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        // depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        // depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = m_Swapchain->GetSurfaceFormat().format;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -706,23 +730,29 @@ private:
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        // VkAttachmentReference colorAttachmentRef{};
-        // colorAttachmentRef.attachment = 0;
-        // colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        // VkAttachmentReference depthAttachmentRef{};
-        // depthAttachmentRef.attachment = 1;
-        // depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        VkAttachmentDescription depthAttachment{};
+        depthAttachment.format = m_Context->FindDepthFormat();
+        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         VkAttachmentReference colorAttachmentRef{};
         colorAttachmentRef.attachment = 0;
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+        VkAttachmentReference depthAttachmentRef{};
+        depthAttachmentRef.attachment = 1;
+        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
         VkSubpassDescription subpass{};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
-        // subpass.pDepthStencilAttachment = &depthAttachmentRef;
+        subpass.pDepthStencilAttachment = &depthAttachmentRef;
         // subpass.pResolveAttachments = &colorAttachmentResolveRef;
 
         std::array<VkSubpassDependency, 1> dependencies;
@@ -735,7 +765,8 @@ private:
         dependencies[0].dependencyFlags = 0;
 
         // std::array<VkAttachmentDescription, 3> attachmets{colorAttachment, depthAttachment, colorAttachmentResolve};
-        std::array<VkAttachmentDescription, 1> attachmets{ colorAttachment };
+        std::array<VkAttachmentDescription, 2> attachmets{ colorAttachment, depthAttachment };
+        // std::array<VkAttachmentDescription, 1> attachmets{ colorAttachment };
 
         VkRenderPassCreateInfo renderPassCI{};
         renderPassCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -748,9 +779,6 @@ private:
 
         vkCreateRenderPass(m_Context->GetDevice(), 
             &renderPassCI, nullptr, &m_RenderPass);
-
-        vkDestroyShaderModule(m_Context->GetDevice(), FS, nullptr);
-        vkDestroyShaderModule(m_Context->GetDevice(), VS, nullptr);
     }
 
     void CreateDescriptorSetLayout() {
@@ -934,11 +962,19 @@ private:
         m_FrameBuffer = new VulkanFrameBuffer(m_Context, m_RenderPass);
         m_FrameBuffer->CreateCommandPool(QueueIndex::eGraphics);
       
-        // m_ViewportFrameBuffer->CreateDepthResources(m_VulkanPipeline->FindDepthFormat()
-        //         , m_VulkanSwapchain->GetExtent());
         // m_ViewportFrameBuffer->CreateColorResources(m_VulkanSwapchain->GetSurfaceFormat().format
         //         , m_VulkanSwapchain->GetExtent());
 
+        CreateImageSettings settings{};
+        settings.Width = m_Swapchain->GetExtent().width;
+        settings.Height = m_Swapchain->GetExtent().height;
+        settings.Format = m_Context->FindDepthFormat();
+        settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
+        settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        settings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
+
+        m_FrameBuffer->AddAttachment(settings);
         m_FrameBuffer->CreateFrameBuffers(m_ViewportImageSettings, m_Swapchain->GetImageCount());
         m_FrameBuffer->CreateCommandBuffer(minImageCount_);
     }
@@ -971,7 +1007,6 @@ private:
     VkDescriptorSetLayout m_DescriptorSetLayout{ VK_NULL_HANDLE };
     VkPipelineLayout m_PipelineLayout{ VK_NULL_HANDLE };
 
-    // std::vector<VulkanImage> m_Images;
     VkShaderModule VS{VK_NULL_HANDLE};
     VkShaderModule FS{VK_NULL_HANDLE};
 };
@@ -1003,7 +1038,7 @@ void VulkanRenderer::Initialize(const char *applicationName_){
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    m_Window = glfwCreateWindow(1920, 1080, "Victory", nullptr, nullptr);
+    m_Window = glfwCreateWindow(1080, 720, "Victory", nullptr, nullptr);
     if (!m_Window) {
         glfwTerminate();
         throw std::runtime_error("GLFW Window was not created!");
@@ -1036,19 +1071,13 @@ void VulkanRenderer::Initialize(const char *applicationName_){
     CHK_RESULT(m_VulkanSwapchain->CreateSwapchain(m_Window),
         "Swapchain was not created!");
 
-    // CHK_RESULT(m_VulkanSwapchain->CreateImages(),
-    //     "Surface images were not created!");
-
-    // CHK_RESULT(m_VulkanSwapchain->CreateImageViews(VK_IMAGE_ASPECT_COLOR_BIT), 
-    //     "Image views were not created!");
-
     m_ViewportPipeline = new ViewportPipeline(m_VulkanContext, m_VulkanSwapchain);
     m_ViewportPipeline->InitResources(MAX_FRAMES_IN_FLIGHT);
 
     m_ImGuiPipeline = new ImGuiPipeline(m_VulkanContext, m_VulkanSwapchain, m_Window);
     m_ImGuiPipeline->Init();
     m_ImGuiPipeline->InitResources(MAX_FRAMES_IN_FLIGHT);
-    // m_ImGuiPipeline->InitDescriptorSets(m_ViewportPipeline->GetImages());
+    m_ImGuiPipeline->InitDescriptorSets(m_ViewportPipeline->GetImages());
 
     {
         m_Models.push_back(VulkanModel(m_VulkanContext, m_ViewportPipeline->GetVulkanFrameBuffer()));
@@ -1060,7 +1089,6 @@ void VulkanRenderer::Initialize(const char *applicationName_){
         CreateImageSettings settings{};
         settings.Format = VK_FORMAT_R8G8B8A8_UNORM;
         settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
-        settings.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         settings.SampleCount = VK_SAMPLE_COUNT_1_BIT;
         m_Images[0].LoadTexture("viking_room.png", settings);
@@ -1094,7 +1122,6 @@ void VulkanRenderer::Initialize(const char *applicationName_){
         CHK_RESULT(VulkanUtils::CreateFence(m_VulkanContext->GetDevice(), &m_InFlightFences[i]),
             "Fence was not created!");
     }
-
 }
 
 bool VulkanRenderer::IsRunning() {
@@ -1129,7 +1156,7 @@ bool VulkanRenderer::Resize() {
 }
 
 void VulkanRenderer::BeginFrame() {
-    // printf("\n-------------- BEGIN FRAME -------------");
+    printf("\n-------------- BEGIN FRAME -------------");
     for (size_t i{0}, n = m_Buffers.size(); i < n; ++i) {
         m_Buffers[i].UpdateUniformBuffer(m_CurrentFrame);
     }
@@ -1164,7 +1191,8 @@ void VulkanRenderer::EndFrame() {
 
     VkQueue graphicsQueue;
     m_VulkanContext->GetQueue(graphicsQueue, QueueIndex::eGraphics);
-    CHK_RESULT((vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) == VK_SUCCESS),
+    VkResult res = vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]);
+    CHK_RESULT(res == VK_SUCCESS,
         "Failed to submit draw command buffer!");
 
     const std::vector<VkSwapchainKHR> swapOld{m_VulkanSwapchain->GetSwapchain()};
@@ -1252,5 +1280,5 @@ void VulkanRenderer::RecreateSwapchain() {
     m_ViewportPipeline->RecreateFrameBuffer(m_VulkanSwapchain->GetExtent());
 
     m_ImGuiPipeline->RecreateFrameBuffer(m_VulkanSwapchain->GetExtent());
-    // m_ImGuiPipeline->RecreateDescriptorSets(m_ViewportPipeline->GetImages());
+    m_ImGuiPipeline->RecreateDescriptorSets(m_ViewportPipeline->GetImages());
 }

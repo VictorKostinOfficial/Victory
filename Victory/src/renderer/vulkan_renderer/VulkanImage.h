@@ -12,6 +12,7 @@ struct CreateImageSettings {
     VkImageUsageFlags Usage;
     VkMemoryPropertyFlags Properties;
     VkSampleCountFlagBits SampleCount;
+    bool NeedTransition = false;
 };
 
 class VulkanImage {

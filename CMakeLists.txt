@@ -3,3 +3,5 @@ project(VictoryApplication)
 
 add_subdirectory(Victory)
 add_subdirectory(Sandbox)
+
+add_subdirectory(VictoryTest)

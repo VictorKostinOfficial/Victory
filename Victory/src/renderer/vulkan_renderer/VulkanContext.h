@@ -16,6 +16,8 @@ public:
 #endif
 
     uint32_t FindMemoryType(const uint32_t typeFilter_, const VkMemoryPropertyFlags flags_) const;
+    VkFormat FindDepthFormat();
+    VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkImageTiling tiling_, VkFormatFeatureFlags features_);
 
     void CleanupLogicalDevice();
     void CleanupInstance();

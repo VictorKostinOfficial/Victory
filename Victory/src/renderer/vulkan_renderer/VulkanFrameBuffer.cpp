@@ -38,11 +38,11 @@ bool VulkanFrameBuffer::CreateFrameBuffers(const CreateImageSettings& settings_,
     m_FrameImages.resize(frameBufferCount_, VulkanImage(m_Context, this));
 
     for (VulkanImage& image : m_FrameImages) {
-        image.CreateImage(settings_);
+        image.CreateImage(settings_, settings_.NeedTransition);
         image.CreateImageView(settings_.Format, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
-    for(size_t i{0}, n = frameBufferCount_; i < n; ++i) {
+    for(size_t i{ 0 }; i < frameBufferCount_; ++i) {
         std::vector<VkImageView> attachments;
         attachments.reserve(m_AttachmentImages.size() + 1);
         attachments.emplace_back(m_FrameImages[i].GetImageView());
@@ -112,29 +112,12 @@ bool VulkanFrameBuffer::CreateCommandBuffer(uint32_t commandBufferCount_) {
     return vkAllocateCommandBuffers(m_Context->GetDevice(), &commandBufferAllocInfo, m_CommandBuffers.data()) == VK_SUCCESS;
 }
 
-void VulkanFrameBuffer::AddAttachment(const CreateImageSettings settings_) {
+void VulkanFrameBuffer::AddAttachment(const CreateImageSettings& settings_) {
     VulkanImage& newAttachment = m_AttachmentImages.emplace_back(m_Context, this);
 
     newAttachment.CreateImage(settings_);
     newAttachment.CreateImageView(settings_.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
-
-// bool VulkanFrameBuffer::CreateDepthResources(VkFormat depthFormat_, const VkExtent2D& extent_) {
-//     m_DepthImage = new VulkanImage(m_Context, this);
-//     CreateImageSettings settings{};
-//     settings.Width = extent_.width;
-//     settings.Height = extent_.height;
-//     settings.Format = depthFormat_;
-//     settings.Tiling = VK_IMAGE_TILING_OPTIMAL;
-//     settings.Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-//     settings.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-//     // TODO: Dynamic change msaa
-//     settings.SampleCount = m_Context->GetSampleCount();
-
-//     m_DepthImage->CreateImage(settings);
-//     m_DepthImage->CreateImageView(settings.Format, VK_IMAGE_ASPECT_DEPTH_BIT);
-//     return true;
-// }
 
 // bool VulkanFrameBuffer::CreateColorResources(VkFormat colorFormat_, const VkExtent2D& extent_) {
 //     m_ColorImage = new VulkanImage(m_Context, this);
@@ -190,7 +173,16 @@ void VulkanFrameBuffer::EndSingleTimeCommands(VkCommandBuffer commandBuffer_) {
     vkFreeCommandBuffers(m_Context->GetDevice(), m_CommandPool, 1, &commandBuffer_);
 }
 
-void VulkanFrameBuffer::CleanupFrameBuffers(bool cleanupAll_) {
+void VulkanFrameBuffer::CleanupAttachments() {
+    for (auto&& image : m_AttachmentImages) {
+        image.CleanupImageView();
+        image.CleanupImage();
+        image.FreeImageMemory();
+    }
+}
+
+void VulkanFrameBuffer::CleanupFrameBuffers(bool cleanupAll_)
+{
     for (auto&& frameBuffer : m_FrameBuffers) {
         vkDestroyFramebuffer(m_Context->GetDevice(), frameBuffer, nullptr);
     }
@@ -211,6 +203,7 @@ void VulkanFrameBuffer::CleanupCommandPool() {
 }
 
 void VulkanFrameBuffer::CleanupAll(bool cleanupAll_) {
+    CleanupAttachments();
     CleanupFrameBuffers(cleanupAll_);
     CleanupCommandPool();
 }

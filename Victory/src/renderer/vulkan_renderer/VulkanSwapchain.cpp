@@ -142,7 +142,8 @@ void VulkanSwapchain::ChooseSwapchainExtent(VkSurfaceCapabilitiesKHR capabilitie
     }
 }
 
-bool VulkanSwapchain::ChooseSwapchainSurfaceFormat() {
+bool VulkanSwapchain::ChooseSwapchainSurfaceFormat()
+{
     uint32_t surfaceFormatsCount{0};
     vkGetPhysicalDeviceSurfaceFormatsKHR(m_Context->GetPhysicalDevice(), 
         m_Surface, &surfaceFormatsCount, nullptr);
@@ -202,4 +203,3 @@ bool VulkanSwapchain::ChoosePresentationModeFormat() {
     m_PresentMode = VK_PRESENT_MODE_FIFO_KHR;
     return true;
 }
-

@@ -15,11 +15,12 @@ public:
     bool CreateFrameBuffers(const CreateImageSettings& settings_, std::vector<VkImage>& images_);
     bool CreateCommandBuffer(uint32_t commandBufferCount_);
 
-    void AddAttachment(const CreateImageSettings settings_);
+    void AddAttachment(const CreateImageSettings& settings_);
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
 
+    void CleanupAttachments();
     void CleanupFrameBuffers(bool cleanupAll_);
     void CleanupCommandPool();
     void CleanupAll(bool cleanupAll_ = false);
@@ -48,6 +49,4 @@ private:
 
     std::vector<VulkanImage> m_FrameImages;
     std::vector<VulkanImage> m_AttachmentImages;
-    VulkanImage* m_DepthImage;
-    VulkanImage* m_ColorImage;
 };

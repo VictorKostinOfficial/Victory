@@ -160,6 +160,33 @@ uint32_t VulkanContext::FindMemoryType(const uint32_t typeFilter_, const VkMemor
     return UINT32_MAX;
 }
 
+VkFormat VulkanContext::FindDepthFormat() {
+    return FindSupportedFormat(
+				{VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+				VK_IMAGE_TILING_OPTIMAL,
+				VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
+
+VkFormat VulkanContext::FindSupportedFormat(const std::vector<VkFormat> &formats, 
+        VkImageTiling tiling_, VkFormatFeatureFlags features_) {
+    for (auto&& format : formats)
+		{
+			VkFormatProperties props;
+			vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
+
+			if (tiling_ == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features_) == features_)
+			{
+				return format;
+			}
+			else if (tiling_ == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features_) == features_)
+			{
+				return format;
+			}
+		}
+
+		throw std::runtime_error("failed to find supported format!");
+}
+
 void VulkanContext::GetQueue(VkQueue& queue_, QueueIndex queueIndex_) {
     uint32_t index = m_QueueIndexes.GetQueueIndex(queueIndex_);
     vkGetDeviceQueue(m_Device, index, 0, &queue_);
