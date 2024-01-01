@@ -54,6 +54,7 @@ namespace Victory
 
     void VulkanDevice::CleanupResourses()
     {
+        vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
         vkDestroyDevice(m_Device, nullptr);
         vkDestroyInstance(m_Instance, nullptr);
     }
@@ -85,6 +86,45 @@ namespace Victory
 		}
 
 		throw std::runtime_error("failed to find supported format!");
+    }
+
+    VkCommandBuffer VulkanDevice::BeginSingleTimeCommands() 
+    {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = m_CommandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+        return commandBuffer;
+    }
+
+    void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer_)
+    {
+        vkEndCommandBuffer(commandBuffer_);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer_;
+
+        // TODO: submit via transfer queue, need Transfer Command pool
+        // https://vulkan-tutorial.com/Vertex_buffers/Staging_buffer
+
+        VkQueue queue;
+        GetQueue(queue, QueueIndex::eGraphics);
+        vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(queue);
+
+        vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer_);
     }
 
     void CollectLayers(std::vector<const char*> &layers_) 
@@ -213,6 +253,18 @@ namespace Victory
         CheckVulkanResult(
             vkCreateDevice(m_PhysicalDevice, &deviceCI, nullptr, &m_Device),
             "Device was not created");
+
+        VkCommandPoolCreateInfo commandPoolCI{};
+        commandPoolCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        commandPoolCI.pNext = nullptr;
+        commandPoolCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        commandPoolCI.queueFamilyIndex = GetQueueIndex(QueueIndex::eGraphics);
+
+        CheckVulkanResult(
+            vkCreateCommandPool(m_Device, 
+                &commandPoolCI, nullptr, &m_CommandPool),
+            "Command pool was not created");
+
     }
 
     uint32_t VulkanDevice::RateDeviceSuitability(VkPhysicalDevice phDevice_) 

@@ -54,6 +54,9 @@ namespace Victory {
         const VkFormat FindSupportedFormat(const std::vector<VkFormat> &formats, 
             VkImageTiling tiling_, VkFormatFeatureFlags features_);
 
+        VkCommandBuffer BeginSingleTimeCommands();
+        void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
+
         inline const VkInstance GetInstance() const 
         {
             return m_Instance;
@@ -101,5 +104,7 @@ namespace Victory {
         VkDevice m_Device{ VK_NULL_HANDLE };
 
         VulkanQueueIndices m_QueueIndices;
+
+        VkCommandPool m_CommandPool;
     };
 }

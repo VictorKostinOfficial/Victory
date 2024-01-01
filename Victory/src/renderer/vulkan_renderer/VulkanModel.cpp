@@ -177,4 +177,3 @@ bool BindBuffer(const VulkanContext* context_, const CreateBufferSettings &buffe
 
     return vkBindBufferMemory(context_->GetDevice(), buffer_, bufferMemory_, 0) == VK_SUCCESS;
 }
-
