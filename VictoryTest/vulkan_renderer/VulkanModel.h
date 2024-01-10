@@ -25,6 +25,8 @@ namespace Victory
         void LoadTexture(std::string &&path, VkImageCreateInfo& imageCI_);
         void CreateDescriptors(VkDescriptorSetLayout layout_, VkDescriptorBufferInfo bufferI_);
 
+        void CleanupAll();
+
         inline const VkBuffer& GetVertexBuffer() const
         {
             return m_VertexBuffer;
@@ -61,7 +63,6 @@ namespace Victory
         void BindBuffer(const CreateBufferSettings& bufferSettings_,
             VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
         void CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_);
-        void TransitionImageLayout(VkImageLayout oldLayout_, VkImageLayout newLayout_);
         void CopyBufferToImage(VkBuffer stagingBuffer_, const VkImageCreateInfo& imageCI_);
 
         void CreateDescriptorPool();

@@ -209,7 +209,7 @@ namespace Victory
             throw std::runtime_error("Graphics Family Queue was not found");
         }
 
-        // TODO: Get max MSAA
+        DefineMaxSampleCount();
     }
 
     void VulkanDevice::CreateLogicalDevice()
@@ -371,5 +371,19 @@ namespace Victory
         }
 
         return !(m_QueueIndices.graphicsQueueIndex == UINT32_MAX);
+    }
+
+    void VulkanDevice::DefineMaxSampleCount() 
+    {
+        VkPhysicalDeviceProperties physicalDeviceProperties;
+        vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+
+        VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+        if (counts & VK_SAMPLE_COUNT_64_BIT) { m_MaxSampleCount = VK_SAMPLE_COUNT_64_BIT; return; }
+        if (counts & VK_SAMPLE_COUNT_32_BIT) { m_MaxSampleCount = VK_SAMPLE_COUNT_32_BIT; return; }
+        if (counts & VK_SAMPLE_COUNT_16_BIT) { m_MaxSampleCount = VK_SAMPLE_COUNT_16_BIT; return; }
+        if (counts & VK_SAMPLE_COUNT_8_BIT) { m_MaxSampleCount = VK_SAMPLE_COUNT_8_BIT; return; }
+        if (counts & VK_SAMPLE_COUNT_4_BIT) { m_MaxSampleCount = VK_SAMPLE_COUNT_4_BIT; return; }
+        if (counts & VK_SAMPLE_COUNT_2_BIT) { m_MaxSampleCount = VK_SAMPLE_COUNT_2_BIT; return; }
     }
 }

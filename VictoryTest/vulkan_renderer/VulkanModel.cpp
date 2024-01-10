@@ -28,33 +28,6 @@ namespace Victory
 
     VulkanModel::~VulkanModel()
     {
-        // std::vector<VertexData> m_Vertices;
-        // std::vector<uint16_t> m_Indices;
-
-        // VkBuffer m_VertexBuffer{ VK_NULL_HANDLE };
-        // VkDeviceMemory m_VertexBufferMemory{ VK_NULL_HANDLE };
-        // VkBuffer m_IndexBuffer{ VK_NULL_HANDLE };
-        // VkDeviceMemory m_IndexBufferMemory{ VK_NULL_HANDLE };
-
-        // VulkanImage* m_Image;
-        // VkSampler m_ImageSampler{ VK_NULL_HANDLE };
-
-        // VkDescriptorPool m_DescriptorPool;
-        // VkDescriptorSet m_DescriptorSet;
-
-        VkDevice device{ m_VulkanDevice->GetDevice() };
-
-        vkFreeMemory(device, m_VertexBufferMemory, nullptr);
-        vkFreeMemory(device, m_IndexBufferMemory, nullptr);
-
-        vkDestroyBuffer(device, m_VertexBuffer, nullptr);
-        vkDestroyBuffer(device, m_IndexBuffer, nullptr);
-
-        m_Image->CleanupAll();
-        delete m_Image;
-
-        vkDestroySampler(device, m_ImageSampler, nullptr);
-        vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
     }
 
     void VulkanModel::LoadModel(std::string&& path_)
@@ -173,8 +146,6 @@ namespace Victory
             throw std::runtime_error("Textrue was not loaded");
         }
 
-        // m_MipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-
         VkDeviceSize imageSize = static_cast<uint32_t>(texWidth) * static_cast<uint32_t>(texHeight) * 4;
         VkBuffer stagingBuffer{VK_NULL_HANDLE};
         VkDeviceMemory stagingBufferMemory{VK_NULL_HANDLE};
@@ -194,12 +165,12 @@ namespace Victory
 
         imageCI_.extent.width = static_cast<uint32_t>(texWidth);
         imageCI_.extent.height = static_cast<uint32_t>(texHeight);
+        imageCI_.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
         m_Image->CreateImage(imageCI_, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        m_Image->TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         CopyBufferToImage(stagingBuffer, imageCI_);
-        TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         vkDestroyBuffer(device, stagingBuffer, nullptr);
         vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -207,13 +178,31 @@ namespace Victory
         m_Image->CreateImageView(imageCI_.format, VK_IMAGE_ASPECT_COLOR_BIT);
 
         CreateSampler();
-        // GenerateMipmaps(VK_FORMAT_R8G8B8A8_UNORM);
+
+        m_Image->GenerateMipmaps(imageCI_.format);
     }
 
     void VulkanModel::CreateDescriptors(VkDescriptorSetLayout layout_, VkDescriptorBufferInfo bufferI_)
     {
         CreateDescriptorPool();
         CreateDescriptorSets(1, layout_, bufferI_);
+    }
+
+    void VulkanModel::CleanupAll()
+    {
+        VkDevice device{ m_VulkanDevice->GetDevice() };
+
+        vkFreeMemory(device, m_VertexBufferMemory, nullptr);
+        vkFreeMemory(device, m_IndexBufferMemory, nullptr);
+
+        vkDestroyBuffer(device, m_VertexBuffer, nullptr);
+        vkDestroyBuffer(device, m_IndexBuffer, nullptr);
+
+        m_Image->CleanupAll();
+        delete m_Image;
+
+        vkDestroySampler(device, m_ImageSampler, nullptr);
+        vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
     }
 
     void VulkanModel::CreateSampler()
@@ -278,55 +267,6 @@ namespace Victory
             copyRegion.size = size_;
 
             vkCmdCopyBuffer(commandBuffer, srcBuffer_, dstBuffer_, 1, &copyRegion);
-        }
-        m_VulkanDevice->EndSingleTimeCommands(commandBuffer);
-    }
-
-    void VulkanModel::TransitionImageLayout(VkImageLayout oldLayout_, VkImageLayout newLayout_)
-    {
-        VkCommandBuffer commandBuffer = m_VulkanDevice->BeginSingleTimeCommands();
-        {
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.oldLayout = oldLayout_;
-            barrier.newLayout = newLayout_;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = m_Image->GetImage();
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.baseMipLevel = 0;
-            barrier.subresourceRange.levelCount = 1;
-            barrier.subresourceRange.baseArrayLayer = 0;
-            barrier.subresourceRange.layerCount = 1;
-
-            VkPipelineStageFlags sourceStage;
-            VkPipelineStageFlags destinationStage;
-
-            if (oldLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout_ == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-                barrier.srcAccessMask = 0;
-                barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-                sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            } else if (oldLayout_ == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-                sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-                destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            } else if (oldLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-                sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-                destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            }
-            else {
-                throw std::invalid_argument("Unsupported layout transition!");
-            }
-
-            vkCmdPipelineBarrier( commandBuffer, sourceStage, destinationStage,
-                0, 0, nullptr, 0, nullptr, 1, &barrier);
         }
         m_VulkanDevice->EndSingleTimeCommands(commandBuffer);
     }

@@ -32,7 +32,6 @@ namespace Victory
         for (uint32_t i{ 0 }; i < frameBufferCount_; ++i)
         {
             m_FrameImages[i].CreateImage(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            // TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, s_ViewportImages[i]);
             m_FrameImages[i].CreateImageView(imageCI.format, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     }
@@ -45,7 +44,6 @@ namespace Victory
         for (uint32_t i{ 0 }; i < imageCount; ++i)
         {
             m_FrameImages[i].SetImage(images_[i]);
-            // TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, s_ViewportImages[i]);
             m_FrameImages[i].CreateImageView(format_, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     }
@@ -63,11 +61,11 @@ namespace Victory
         {
             std::vector<VkImageView> attachments;
             attachments.reserve(m_AttachmentImages.size() + 1);
-            attachments.emplace_back(m_FrameImages[i].GetImageView());
             for (auto&& view : m_AttachmentImages)
             {
                 attachments.emplace_back(view.GetImageView());
             }
+            attachments.emplace_back(m_FrameImages[i].GetImageView());
 
             VkFramebufferCreateInfo framebufferCI{};
             framebufferCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

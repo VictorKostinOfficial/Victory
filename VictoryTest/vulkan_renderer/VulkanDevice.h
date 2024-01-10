@@ -87,6 +87,11 @@ namespace Victory {
             vkGetDeviceQueue(m_Device, m_QueueIndices[queueIndex_], 0, &queue_);
         }
 
+        inline VkSampleCountFlagBits GetMaxSampleCount() const 
+        {
+            return m_MaxSampleCount;
+        }
+
     private:
 
         VulkanDevice() = default;
@@ -96,6 +101,7 @@ namespace Victory {
 
         uint32_t RateDeviceSuitability(VkPhysicalDevice phDevice_);
         bool PickQueueIndecies(VkPhysicalDevice phDevice_, VkSurfaceKHR surface_);
+        void DefineMaxSampleCount();
 
     private:
 
@@ -106,5 +112,7 @@ namespace Victory {
         VulkanQueueIndices m_QueueIndices;
 
         VkCommandPool m_CommandPool;
+
+        VkSampleCountFlagBits m_MaxSampleCount{ VK_SAMPLE_COUNT_1_BIT };
     };
 }

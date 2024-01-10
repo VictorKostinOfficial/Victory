@@ -1,12 +1,14 @@
 #pragma once
 
-namespace Victory { 
+namespace Victory 
+{ 
     class VulkanDevice;
     class VulkanImage;
 
     enum class QueueIndex;
 
-    class VulkanFrameBuffer {
+    class VulkanFrameBuffer 
+    {
     public:
 
         VulkanFrameBuffer(VulkanDevice* vulkanDevice_);
@@ -23,13 +25,7 @@ namespace Victory {
 
         void CreateCommandBuffers();
 
-        // void AddAttachment(const VkImageCreateInfo& settings_);
-
-        // VkCommandBuffer BeginSingleTimeCommands();
-        // void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
-
         void CleanupAttachments();
-        void CleanupFrameBuffers(bool cleanupAll_);
         void CleanupCommandPool();
         void CleanupAll();
 
@@ -41,7 +37,7 @@ namespace Victory {
             return m_FrameBuffers[index_];
         }
 
-        inline const std::vector<VulkanImage>& GetFrameImages() const {
+        inline std::vector<VulkanImage>& GetFrameImages() {
             return m_FrameImages;
         }
 
