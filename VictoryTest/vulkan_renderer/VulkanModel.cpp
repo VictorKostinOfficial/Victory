@@ -1,21 +1,15 @@
 #include <string>
 #include <vector>
+#include <array>
 #include <vulkan/vulkan.h>
-#include "../../Victory/src/renderer/vulkan_renderer/VulkanVertexData.h"
+#include "VertexData.h"
 
 #include "VulkanModel.h"
 
 #include "VulkanDevice.h"
 #include "VulkanSwapchain.h"
 #include "VulkanImage.h"
-
-// Load Object
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
-// Load Image
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "VulkanFileUtils.h"
 
 namespace Victory
 {
@@ -30,45 +24,9 @@ namespace Victory
     {
     }
 
-    void VulkanModel::LoadModel(std::string&& path_)
+    void VulkanModel::LoadModel(const std::string& path_)
     {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
-
-        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path_.c_str())) {
-            throw std::runtime_error(warn + err);
-        }
-
-        std::unordered_map<VertexData, uint32_t> uniqueVertices;
-        uniqueVertices.reserve(attrib.vertices.size());
-
-        for (const auto& shape : shapes) {
-            for (const auto& index : shape.mesh.indices) {
-                VertexData vertex{};
-
-                vertex.position = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-                };
-
-                vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.f - attrib.texcoords[2 * index.texcoord_index + 1]
-                };
-
-                vertex.color = {1.f, 1.f, 1.f};
-
-                if (uniqueVertices.count(vertex) == 0) {
-                    uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
-                    m_Vertices.emplace_back(vertex);
-                }
-
-                m_Indices.emplace_back(uniqueVertices[vertex]);
-            }
-        }
+        Victory::LoadModel(path_, m_Vertices, m_Indices);
 
         CreateVertexBuffer();
         CreateIndexBuffer();
@@ -136,15 +94,12 @@ namespace Victory
         vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
-    void VulkanModel::LoadTexture(std::string&& path_, VkImageCreateInfo& imageCI_)
+    void VulkanModel::LoadTexture(const std::string& path_, VkImageCreateInfo& imageCI_)
     {
         VkDevice device{ m_VulkanDevice->GetDevice() };
-        int texWidth, texHeight, texChannels;
-        stbi_uc* pixels = stbi_load(path_.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        int texWidth, texHeight;
 
-        if (!pixels) {
-            throw std::runtime_error("Textrue was not loaded");
-        }
+        unsigned char* pixels{ Victory::LoadPixels(path_, texWidth, texHeight) };
 
         VkDeviceSize imageSize = static_cast<uint32_t>(texWidth) * static_cast<uint32_t>(texHeight) * 4;
         VkBuffer stagingBuffer{VK_NULL_HANDLE};
@@ -161,7 +116,7 @@ namespace Victory
             memcpy(data, pixels, static_cast<size_t>(imageSize));
         vkUnmapMemory(device, stagingBufferMemory);
 
-        stbi_image_free(pixels);
+        Victory::DeletePixels(pixels);
 
         imageCI_.extent.width = static_cast<uint32_t>(texWidth);
         imageCI_.extent.height = static_cast<uint32_t>(texHeight);

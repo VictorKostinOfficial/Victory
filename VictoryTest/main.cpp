@@ -1212,8 +1212,12 @@ public:
         imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
         Victory::VulkanModel newModel;
-        newModel.LoadModel("viking_room.obj");
-        newModel.LoadTexture("viking_room.png", imageCI);
+        {
+            const std::string obj{ "viking_room.obj" };
+            const std::string png{ "viking_room.png" };
+            newModel.LoadModel(obj);
+            newModel.LoadTexture(png, imageCI);
+        }
 
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = ViewportPipeline->GetUniformBuffer();

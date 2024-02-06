@@ -21,8 +21,8 @@ namespace Victory
         VulkanModel();
         ~VulkanModel();
 
-        void LoadModel(std::string &&path);
-        void LoadTexture(std::string &&path, VkImageCreateInfo& imageCI_);
+        void LoadModel(const std::string& path_);
+        void LoadTexture(const std::string& path_, VkImageCreateInfo& imageCI_);
         void CreateDescriptors(VkDescriptorSetLayout layout_, VkDescriptorBufferInfo bufferI_);
 
         void CleanupAll();
