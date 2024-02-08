@@ -1,59 +1,90 @@
 #pragma once
 
-#include "../VertexData.h"
+struct CreateBufferSettings;
+struct VertexData;
 
-class VulkanContext;
-class VulkanFrameBuffer;
+namespace Victory 
+{
+    struct CreateBufferSettings {
+        VkDeviceSize size;
+        VkBufferUsageFlags usage;
+        VkMemoryPropertyFlags properties;
+    };
 
-struct CreateBufferSettings {
-    VkDeviceSize Size;
-    VkBufferUsageFlags Usage;
-    VkMemoryPropertyFlags Properties;
-};
+    class VulkanDevice;
+    class VulkanSwapchain;
+    class VulkanImage;
 
-class VulkanModel {
-public:
+    class VulkanModel
+    {
+    public:
+        VulkanModel();
+        ~VulkanModel();
 
-    VulkanModel(VulkanContext* context_
-    , VulkanFrameBuffer* frameBuffer_);
+        void LoadModel(const std::string& path_);
+        void LoadTexture(const std::string& path_, VkImageCreateInfo& imageCI_);
+        void CreateDescriptors(VkDescriptorSetLayout layout_, VkDescriptorBufferInfo bufferI_);
 
-    bool LoadModel(std::string&& path_);
-    bool CreateVertexBuffer();
-    bool CreateIndexBuffer();
+        void CleanupAll();
 
-    void CleanupBuffer(VkBuffer& buffer_);
-    void FreeBufferMemory(VkDeviceMemory& memory_);
-    void CleanupAll();
+        inline const VkBuffer& GetVertexBuffer() const
+        {
+            return m_VertexBuffer;
+        }
 
-    inline const VkBuffer GetVertexBuffer() const {
-        return m_VertexBuffer;
-    }
+        inline const VkBuffer& GetIndexBuffer() const
+        {
+            return m_IndexBuffer;
+        }
 
-    inline const VkBuffer GetIndexBuffer() const {
-        return m_IndexBuffer;
-    }
+        inline const std::vector<VertexData>& GetVerices() const
+        {
+            return m_Vertices;
+        }
 
-    inline const uint32_t GetIndexCount() const {
-        return static_cast<uint32_t>(m_Indices.size());
-    }
+        inline const std::vector<uint16_t>& GetIndices() const
+        {
+            return m_Indices;
+        }
 
-private:
+        inline const VkDescriptorSet& GetDescriptorSet() const 
+        {
+            return m_DescriptorSet;
+        }
 
-    void CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_);
+    private:
 
-private:
+        void CreateVertexBuffer();
+        void CreateIndexBuffer();
 
-    std::vector<VertexData> m_Vertices;
-    std::vector<uint16_t> m_Indices;
+        void CreateSampler();
 
-    VulkanContext* m_Context;
-    VulkanFrameBuffer* m_FrameBuffer;
+        // TODO: Split this functions
+        void BindBuffer(const CreateBufferSettings& bufferSettings_,
+            VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
+        void CopyBuffer(VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize size_);
+        void CopyBufferToImage(VkBuffer stagingBuffer_, const VkImageCreateInfo& imageCI_);
 
-    VkBuffer m_VertexBuffer{VK_NULL_HANDLE};
-    VkDeviceMemory m_VertexBufferMemory{VK_NULL_HANDLE};
-    VkBuffer m_IndexBuffer{VK_NULL_HANDLE};
-    VkDeviceMemory m_IndexBufferMemory{VK_NULL_HANDLE};
-};
+        void CreateDescriptorPool();
+        void CreateDescriptorSets(uint32_t maxFrames_, VkDescriptorSetLayout layout_, VkDescriptorBufferInfo bufferI_);
 
-bool BindBuffer(const VulkanContext* context_, const CreateBufferSettings& bufferSettings_, 
-    VkBuffer& buffer_, VkDeviceMemory& bufferMemory_);
+    private:
+
+        VulkanDevice* m_VulkanDevice;
+        VulkanSwapchain* m_VulkanSwapchain;
+
+        std::vector<VertexData> m_Vertices;
+        std::vector<uint16_t> m_Indices;
+
+        VkBuffer m_VertexBuffer{ VK_NULL_HANDLE };
+        VkDeviceMemory m_VertexBufferMemory{ VK_NULL_HANDLE };
+        VkBuffer m_IndexBuffer{ VK_NULL_HANDLE };
+        VkDeviceMemory m_IndexBufferMemory{ VK_NULL_HANDLE };
+
+        VulkanImage* m_Image;
+        VkSampler m_ImageSampler{ VK_NULL_HANDLE };
+
+        VkDescriptorPool m_DescriptorPool;
+        VkDescriptorSet m_DescriptorSet;
+    };
+}

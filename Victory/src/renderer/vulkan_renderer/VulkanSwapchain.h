@@ -1,49 +1,68 @@
 #pragma once
 
-class VulkanContext;
-class VulkanFrameBuffer;
-class VulkanImage;
-
 struct GLFWwindow;
 
-class VulkanSwapchain {
-public:
+namespace Victory {
 
-    VulkanSwapchain(VulkanContext* context_);
+    class VulkanDevice;
 
-    bool CreateSurface(GLFWwindow* window_);
-    bool CreateSwapchain(GLFWwindow* window_);
-    void GetImages(std::vector<VkImage>& images_);
+    class VulkanSwapchain {
+    public:
 
-    void CleanupSwapchain();
-    void CleanupSurface();
-    void CleanupAll();
+        static VulkanSwapchain* Init(VulkanDevice* vulkanDevice_ = nullptr, 
+            GLFWwindow* window_ = nullptr);
+        static void Cleanup();
 
-    VkSurfaceKHR GetSurface() const;
-    VkSwapchainKHR GetSwapchain() const;
-    VkSurfaceFormatKHR GetSurfaceFormat() const;
-    VkExtent2D GetExtent() const;
+        void CreateSurface();
+        void CreateSwapchain();
 
-    inline const uint32_t GetImageCount() const {
-        return m_ImageCount;
-    }
+        void RecreateSwapchain();
 
-private:
+        inline VkSurfaceKHR GetSurface() const {
+            return m_Surface;
+        }
 
-    void ChooseSwapchainExtent(VkSurfaceCapabilitiesKHR capabilities_, GLFWwindow* window_);
-    bool ChooseSwapchainSurfaceFormat();
-    bool ChoosePresentationModeFormat();
+        inline VkSwapchainKHR GetSwapchain() const {
+            return m_Swapchain;
+        }
 
-private:
+        inline VkSurfaceFormatKHR GetSurfaceFormat() const {
+            return m_SurfaceFormat;
+        }
 
-    VulkanContext* m_Context;
+        inline VkExtent2D GetExtent() const {
+            return m_Extent;
+        }
 
-    VkSurfaceKHR m_Surface{VK_NULL_HANDLE};
-    VkSwapchainKHR m_Swapchain{VK_NULL_HANDLE};
+        inline const uint32_t GetImageCount() const {
+            return m_ImageCount;
+        }
 
-    VkExtent2D m_Extent;
-    VkSurfaceFormatKHR m_SurfaceFormat;
-    VkPresentModeKHR m_PresentMode;
+    private:
 
-    uint32_t m_ImageCount;
-};
+        VulkanSwapchain(VulkanDevice* vulkanDevice_,
+            GLFWwindow* window_);
+        ~VulkanSwapchain() = default;
+
+        void CleanupResourses();
+
+        void ChooseSwapchainExtent(VkSurfaceCapabilitiesKHR capabilities_);
+        void ChooseSwapchainSurfaceFormat();
+        void ChoosePresentationModeFormat();
+
+    private:
+
+        GLFWwindow* m_Window{ nullptr };
+
+        VulkanDevice* m_VulkanDevice{ nullptr };
+
+        VkSurfaceKHR m_Surface{ VK_NULL_HANDLE };
+        VkSwapchainKHR m_Swapchain{ VK_NULL_HANDLE };
+
+        VkExtent2D m_Extent;
+        VkSurfaceFormatKHR m_SurfaceFormat;
+        VkPresentModeKHR m_PresentMode;
+
+        uint32_t m_ImageCount;
+    };
+}

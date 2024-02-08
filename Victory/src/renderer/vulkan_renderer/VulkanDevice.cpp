@@ -13,6 +13,7 @@ namespace Victory
 {
 
     static VulkanDevice* s_VulkanDeviceInstance{ nullptr };
+    const static std::string s_EngineName{ "Victory Engine" };
 
     VulkanDevice* VulkanDevice::Init() 
     {
@@ -149,14 +150,14 @@ namespace Victory
         }
     }
 
-    void VulkanDevice::CreateInstance() 
+    void VulkanDevice::CreateInstance(const char* applicationName_) 
     {
         VkApplicationInfo applicationI{};
         applicationI.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         applicationI.pNext = nullptr;
-        applicationI.pApplicationName = "Victory Playground";
+        applicationI.pApplicationName = applicationName_;
         applicationI.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        applicationI.pEngineName = "Victory";
+        applicationI.pEngineName = s_EngineName.c_str();
         applicationI.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         applicationI.apiVersion = VK_API_VERSION_1_3;
 

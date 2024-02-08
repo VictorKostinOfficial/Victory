@@ -1,52 +1,56 @@
 #pragma once
 
-class VulkanContext;
-class VulkanImage;
-enum class QueueIndex;
-struct CreateImageSettings;
+namespace Victory 
+{ 
+    class VulkanDevice;
+    class VulkanImage;
 
-class VulkanFrameBuffer {
-public:
+    enum class QueueIndex;
 
-    VulkanFrameBuffer(VulkanContext* context_, VkRenderPass renderPass_);
-    bool CreateCommandPool(QueueIndex index_);
+    class VulkanFrameBuffer 
+    {
+    public:
 
-    bool CreateFrameBuffers(const CreateImageSettings& settings_, uint32_t frameBufferCount_);
-    bool CreateFrameBuffers(const CreateImageSettings& settings_, std::vector<VkImage>& images_);
-    bool CreateCommandBuffer(uint32_t commandBufferCount_);
+        VulkanFrameBuffer(VulkanDevice* vulkanDevice_);
 
-    void AddAttachment(const CreateImageSettings& settings_);
+        void CreateCommandPool(QueueIndex index_);
 
-    VkCommandBuffer BeginSingleTimeCommands();
-    void EndSingleTimeCommands(VkCommandBuffer commandBuffer_);
+        void CreateFrameBufferImages(const VkImageCreateInfo& imageCI, 
+            const uint32_t frameBufferCount_);
+        void AttachFrameBufferImages(std::vector<VkImage>& images_, VkFormat format_);
 
-    void CleanupAttachments();
-    void CleanupFrameBuffers(bool cleanupAll_);
-    void CleanupCommandPool();
-    void CleanupAll(bool cleanupAll_ = false);
+        void SetAttachments(const std::vector<VulkanImage>& imageViews_);
 
-    inline VkCommandBuffer GetCommandBuffer(const uint32_t index) const {
-        return m_CommandBuffers[index];
-    }
+        void CreateFrameBuffers(VkRenderPass renderPass_, VkExtent2D extent_);
 
-    inline VkFramebuffer GetFrameBuffer(const uint32_t index) const {
-        return m_FrameBuffers[index];
-    }
+        void CreateCommandBuffers();
 
-    inline const std::vector<VulkanImage>& GetFrameImages() const {
-        return m_FrameImages;
-    }
+        void CleanupAttachments();
+        void CleanupCommandPool();
+        void CleanupAll();
 
-private:
+        inline VkCommandBuffer GetCommandBuffer(const uint32_t index_) const {
+            return m_CommandBuffers[index_];
+        }
 
-    VulkanContext* m_Context;
-    VkRenderPass m_RenderPass;
+        inline VkFramebuffer GetFrameBuffer(const uint32_t index_) const {
+            return m_FrameBuffers[index_];
+        }
 
-    VkCommandPool m_CommandPool{VK_NULL_HANDLE};
+        inline std::vector<VulkanImage>& GetFrameImages() {
+            return m_FrameImages;
+        }
 
-    std::vector<VkFramebuffer> m_FrameBuffers;
-    std::vector<VkCommandBuffer> m_CommandBuffers;
+    private:
 
-    std::vector<VulkanImage> m_FrameImages;
-    std::vector<VulkanImage> m_AttachmentImages;
-};
+        VulkanDevice* m_VulkanDevice { nullptr };
+
+        VkCommandPool m_CommandPool{VK_NULL_HANDLE};
+
+        std::vector<VkFramebuffer> m_FrameBuffers;
+        std::vector<VkCommandBuffer> m_CommandBuffers;
+
+        std::vector<VulkanImage> m_FrameImages;
+        std::vector<VulkanImage> m_AttachmentImages;
+    };
+}

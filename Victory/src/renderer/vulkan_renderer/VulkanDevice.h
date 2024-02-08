@@ -43,7 +43,7 @@ namespace Victory {
         static VulkanDevice* Init();
         static void Cleanup();
 
-        void CreateInstance();
+        void CreateInstance(const char* applicationName_);
         void PickPhysicalDevice(VkSurfaceKHR surface_);
         void CreateLogicalDevice();
 

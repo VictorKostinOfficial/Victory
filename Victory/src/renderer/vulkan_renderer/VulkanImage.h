@@ -1,76 +1,53 @@
 #pragma once
 
-class VulkanContext;
-class VulkanFrameBuffer;
-class VulkanSwapchain;
 #include <string>
 
-struct CreateImageSettings {
-    uint32_t Width, Height;
-    VkFormat Format;
-    VkImageTiling Tiling;
-    VkImageUsageFlags Usage;
-    VkMemoryPropertyFlags Properties;
-    VkSampleCountFlagBits SampleCount;
-    bool NeedTransition = false;
-};
+namespace Victory 
+{
+    class VulkanDevice;
 
-class VulkanImage {
-public:
+    class VulkanImage 
+    {
+    public:
 
-    VulkanImage(VulkanContext* context_, 
-        VulkanFrameBuffer* frameBuffer_);
+        VulkanImage(VulkanDevice* vulkanDevice_);
 
-    VulkanImage(VulkanContext* context_, 
-        VulkanFrameBuffer* frameBuffer_, 
-        VkImage image_);
+        void CreateImage(const VkImageCreateInfo& imageCI_, 
+            const VkMemoryPropertyFlags memoryProperty_);
+        void SetImage(VkImage image_);
+        void CreateImageView(VkFormat format_, VkImageAspectFlags aspect_);
 
-    // Give buffer settings?
-    bool LoadTexture(std::string&& path_, CreateImageSettings& settings_);
-    bool CreateImage(const CreateImageSettings& settings_, bool bIsNeedTransition = false);
-    bool CreateImageView(VkFormat format_, VkImageAspectFlags aspect_);
-    bool CreateSampler();
+        void TransitionImageLayout(VkImageLayout oldLayout_, VkImageLayout newLayout_);
 
+        void GenerateMipmaps(VkFormat imageFormat_);
 
-    void CleanupImage();
-    void CleanupImageView();
-    void FreeImageMemory();
-    void CleanupSampler();
-    void CleanupAll();
+        void CleanupAll();
 
-    inline VkImage GetImage() const {
-        return m_Image;
-    }
+        inline VkImage GetImage() const {
+            return m_Image;
+        }
 
-    inline VkImageView GetImageView() const {
-        return m_ImageView;
-    }
+        inline VkImageView GetImageView() const {
+            return m_ImageView;
+        }
 
-    inline VkDeviceMemory GetImageMemory() const {
-        return m_ImageMemory;
-    }
+        inline VkDeviceMemory GetImageMemory() const {
+            return m_ImageMemory;
+        }
 
-    inline VkSampler GetSampler() const {
-        return m_Sampler;
-    }
+    private:
 
-private:
+        void CopyBufferToImage(VkBuffer stagingBuffer_);
 
-    void CopyBufferToImage(VkBuffer stagingBuffer_);
-    void TransitionImageLayout(VkImageLayout oldLayout_, VkImageLayout newLayout_);
-    void GenerateMipmaps(VkFormat imageFormat_);
+    private:
 
-private:
+        VulkanDevice* m_VulkanDevice;
 
-    VulkanContext* m_Context;
-    VulkanFrameBuffer* m_FrameBuffer;
+        VkImage m_Image{ VK_NULL_HANDLE };
+        VkImageView m_ImageView{ VK_NULL_HANDLE };
+        VkDeviceMemory m_ImageMemory{ VK_NULL_HANDLE };
 
-    uint32_t m_Width, m_Height;
-    uint32_t m_MipLevels{1};
-
-    VkImage m_Image{VK_NULL_HANDLE};
-    VkImageView m_ImageView{VK_NULL_HANDLE};
-    VkDeviceMemory m_ImageMemory{VK_NULL_HANDLE};
-
-    VkSampler m_Sampler{VK_NULL_HANDLE};
-};
+        VkExtent2D m_ImageExtent;
+        uint32_t m_MipLevels{ 1 };
+    };
+}

@@ -4,5 +4,5 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(Sandbox src/Sandbox.cpp)
 
-target_include_directories(Sandbox PRIVATE ../Victory/src)
+target_include_directories(Sandbox PRIVATE ../Victory/src ../Victory/src/renderer/vulkan_renderer)
 target_link_libraries(Sandbox PRIVATE Victory)

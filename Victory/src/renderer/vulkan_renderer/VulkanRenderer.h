@@ -2,21 +2,18 @@
 
 #include "../Renderer.h"
 
+#include <vulkan/vulkan.h>
 #include <vector>
+#include <string>
+#include <unordered_map>
 
-struct VkSemaphore_T;
-struct VkFence_T;
-typedef VkSemaphore_T *VkSemaphore;
-typedef VkFence_T *VkFence;
-
-class VulkanContext;
-class VulkanSwapchain;
-class VulkanPipeline;
-class VulkanFrameBuffer;
-class VulkanImage;
-class VulkanModel;
-class VulkanBuffer;
-class ImGuiPipeline;
+namespace Victory 
+{
+    class VulkanDevice;
+    class VulkanSwapchain;
+    class VulkanGraphicsPipeline;
+    class VulkanModel;
+}
 
 struct GLFWwindow;
 
@@ -44,28 +41,38 @@ private:
     VulkanRenderer() = default;
     virtual ~VulkanRenderer() = default;
 
+    void CreateSemaphores();
+    void CleanupSemaphores();
+    void SetIsResized(bool value_, int width_, int height_);
+    void SetIsRunning(bool value_);
+
     void RecreateSwapchain();
     bool InitImGui();
+
+    friend void OnWindowClose(GLFWwindow* window_);
+    friend void OnWindowResize(GLFWwindow* window_, int width_, int height_);
 
 private: 
 
     GLFWwindow* m_Window;
+    int m_WindowWidth{ 0 };
+    int m_WindowHeight{ 0 };
 
-    VulkanContext* m_VulkanContext;
-    VulkanSwapchain* m_VulkanSwapchain;
+    Victory::VulkanDevice* m_VulkanDevice;
+    Victory::VulkanSwapchain* m_VulkanSwapchain;
 
-    uint32_t m_CurrentFrame{0};
-    uint32_t m_ImageIndex{0};
+    bool m_IsRunning{ true };
+    bool m_IsResized{ false };
 
-    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-    bool m_IsResized{false};
+    std::unordered_map<std::string, Victory::VulkanGraphicsPipeline*> m_Pipelines;
 
-    std::vector<VulkanImage> m_Images;
-    std::vector<VulkanModel> m_Models;
-    std::vector<VulkanBuffer> m_Buffers;
+    const uint32_t m_MaxImageInFight{ 2 };
+    uint32_t m_CurrentFrame{ 0 };
+    uint32_t m_ImageIndex{ 0 };
 
-    // TODO: create memoryMenegmentClass or move to VulkanSynchronization
-    std::vector<VkSemaphore> m_AvailableSemaphores;
-    std::vector<VkSemaphore> m_FinishedSemaphores;
-    std::vector<VkFence> m_InFlightFences;
+    std::vector<VkCommandBuffer> m_CommandBuffers;
+    
+    std::vector<VkSemaphore> m_ImageAvailableSemaphore;
+    std::vector<VkSemaphore> m_RenderingFinishedSemaphore;
+    std::vector<VkFence> m_QueueSubmitFence;
 };
