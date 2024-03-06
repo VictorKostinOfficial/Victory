@@ -18,6 +18,6 @@ https://github.com/VictorKostinOfficial/Victory/assets/122555487/b86506d4-6056-4
 ```
 git clone --recurse-submodules https://github.com/VictorKostinOfficial/Victory.git
 ```
-- Build **Victory** project
-- Move **viking_room.obj and viking_room.png** from **Victory/Victory/models** to your Victory executable folder
-- Run application
+- Build **Victory** and **Sandbox** project
+- Move **viking_room.obj and viking_room.png** from **Victory/Victory/models** to your Sandbox executable folder
+- Run Sandbox application
