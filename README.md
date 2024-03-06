@@ -1,6 +1,5 @@
 > **Small graphic application on Vulkan**
 >
-> **Development is currently underway in the Victory Test folder**
 
 # Victory Graphic Application
 
@@ -19,6 +18,6 @@ https://github.com/VictorKostinOfficial/Victory/assets/122555487/b86506d4-6056-4
 ```
 git clone --recurse-submodules https://github.com/VictorKostinOfficial/Victory.git
 ```
-- Build **VictoryTest** project
-- Move **viking_room.obj and viking_room.png** from **Victory/Victory/models** to your VictoryTest executable folder
+- Build **Victory** project
+- Move **viking_room.obj and viking_room.png** from **Victory/Victory/models** to your Victory executable folder
 - Run application
